@@ -16,7 +16,7 @@
 <body>
     <main class="h-100 mh-100 d-flex flex-column overflow-hidden justify-content-start">
         <div id="messages" class="px-4 pb-4 pt-2 flex-grow-1 overflow-y-auto overflow-x-hidden align-items-stretch">
-            <h2 id="no-messages-heading" class="text-center">Chat with your uploaded images</h2>
+            <h2 id="no-messages-heading" class="text-center">Extract patient information by uploading patient records</h2>
             <template id="message-template-user">
                 <div class="toast-container position-static w-100 d-flex flex-column align-items-stretch">
                     <div class="toast fade show w-75 rounded-3 align-self-end">
@@ -40,11 +40,11 @@
                         <div class="toast-header text-light background-assistant">
                             <i class="bi bi-robot me-1" aria-hidden="true"></i>
                             <strong class="me-auto text-capitalize">
-                                Assistant
+                                Extracted Patient Information
                             </strong>
                         </div>
                         <div class="toast-body message-content">
-                            <em class="typing-indicator">Typing...</em>
+                            <em class="typing-indicator">Generating...</em>
                         </div>
                     </div>
                 </div>
@@ -56,19 +56,22 @@
                     <div class="flex-grow-1">
 
 
-                        <label for="file" class="form-label" style="color:white">Upload image:</label>
+                        <label for="file" class="form-label" style="color:white">Upload file:</label>
                         <div class="input-group mb-3">
                             <i class="bi bi-file-earmark-text input-group-text" aria-hidden="true"></i>
-                            <input id="file" name="file" class="form-control form-control-sm" type="file" accept=".png, .jpg" aria-label="Upload File"></input>
+                            <!-- Enable uploads of PDF, jpg and png files -->
+                            <input id="file" name="file" class="form-control form-control-sm" type="file" accept=".png, .jpg, .pdf" aria-label="Upload File"></input>
                         </div>
 
 
                         <label for="message" class="form-label bi" style="color:white">Ask question about image:</label>
                         <div class="input-group">
+
+                            <!-- I eventually want to get rid of speech input button -->
                             <speech-input-button></speech-input-button>
                             <input id="message" name="message" class="form-control form-control-sm" type="text" rows="1" placeholder="<Your Message>" aria-label="Ask ChatGPT"></input>
                             <button type="submit" class="btn btn-primary">
-                                Send
+                                Submit
                                 <i class="bi bi-send-fill" aria-hidden="true"></i>
                             </button>
                         </div>
@@ -105,7 +108,22 @@
 
         fileInput.addEventListener("change", async function() {
             const file = fileInput.files[0];
-            if (file) {
+            // this only works if the mimetypes library is imported in the backend
+            if (file && file.type === 'application/pdf') {
+                // For PDF files, create an embed element to display it
+                var pdfPath = URL.createObjectURL(file);
+                var embed = document.createElement('embed');
+                embed.src = pdfPath;
+                iframe.width = '100%';
+                embed.height = '100%';
+                embed.style.border = 'none';
+                pdfContainer.innerHTML = '';
+                pdfContainer.appendChild(embed);
+                filenameSpan.textContent = file.name;
+                pdfContainer.style.display = 'block';
+                pdfHeader.style.display = 'block';
+            } else if (file) {
+                // For image files, convert to base64 and display
                 const fileData = await toBase64(file);
                 imagePreview.src = fileData;
                 imagePreview.style.display = "block";

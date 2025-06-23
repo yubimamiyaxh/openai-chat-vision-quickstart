@@ -1,5 +1,9 @@
 import json
 import os
+# YUBI added this, make sure it is part of the requirements.txt
+import mimetypes
+import pymupdf
+from PIL import Image
 
 import azure.identity.aio
 import openai
@@ -75,25 +79,56 @@ async def shutdown_openai():
 async def index():
     return await render_template("index.html")
 
+# add function to convert PDF to images
+# YUBI: do I need to add fancy symbols or async to the function?
+def convert_pdf_to_images(filename):
+    # This function converts a PDF file to images and saves them as PNG files
+    doc = pymupdf.open(filename)
+    img_names_list = []
+    # Iterate through each page in the PDF and save the image
+    for i in range(doc.page_count):
+        doc = pymupdf.open(filename)
+        page = doc.load_page(i)
+        pix = page.get_pixmap()
+        original_img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+        img_names_list.append(f"page_{i}.png")
+        # I need to find a way to delete all of the saved images after the request is done
+        # And delete the current images and PDF file in the directory
+        original_img.save(f"page_{i}.png")
+
+    # return the list of image names
+    return img_names_list
+
 
 @bp.post("/chat/stream")
 async def chat_handler():
     request_json = await request.get_json()
     request_messages = request_json["messages"]
-    # get the base64 encoded image from the request
-    image = request_json["context"]["file"]
+    # get the base64 encoded image from the request or other file like PDF
+    request_file = request_json["context"]["file"]
 
     @stream_with_context
     async def response_stream():
         # This sends all messages, so API request may exceed token limits
+        # YUBI: structure the messages to make it better for the model performance
         all_messages = [
             {"role": "system", "content": "You are a helpful assistant."},
         ] + request_messages[0:-1]
         all_messages = request_messages[0:-1]
-        if image:
+        # YUBI: is this the correct kind of code to specify pdf?
+        if request_file and mimetypes.guess_type(request_file)[0] == "application/pdf":
+            user_content.append({"text": request_messages[-1]["content"], "type": "text"})
+            # retrieving PDF from the request and converting it to images
+            images_names_list = convert_pdf_to_images(request_file)
+            for image_name in images_names_list:
+                user_content.append({"image_url": {"url": image_name, "detail": "auto"}, "type": "image_url"})
+            all_messages.append({"role": "user", "content": user_content})
+        # if request_file is an image
+        elif request_file and mimetypes.guess_type(request_file)[0].startswith("image/"):
             user_content = []
             user_content.append({"text": request_messages[-1]["content"], "type": "text"})
-            user_content.append({"image_url": {"url": image, "detail": "auto"}, "type": "image_url"})
+            # retrieving image from the request
+            user_content.append({"image_url": {"url": request_file, "detail": "auto"}, "type": "image_url"})
             all_messages.append({"role": "user", "content": user_content})
         else:
             all_messages.append(request_messages[-1])
