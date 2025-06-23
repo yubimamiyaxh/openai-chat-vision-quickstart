@@ -93,7 +93,8 @@ def convert_pdf_to_images(filename):
         original_img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
         img_names_list.append(f"page_{i}.png")
         # I need to find a way to delete all of the saved images after the request is done
-        # And delete the current images and PDF file in the directory
+        # Or maybe it will just replace them when you run it again
+        # Save the image as a PNG file in the current directory (src), switch to a different folder
         original_img.save(f"page_{i}.png")
 
     # return the list of image names
