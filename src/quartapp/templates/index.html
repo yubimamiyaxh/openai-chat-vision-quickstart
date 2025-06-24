@@ -23,7 +23,7 @@
                         <div class="toast-header text-light background-user">
                             <i class="bi bi-person me-1" aria-hidden="true"></i>
                             <strong class="me-auto text-capitalize">
-                                You
+                                User
                             </strong>
                         </div>
                         <div class="toast-body message-file">
@@ -95,6 +95,7 @@
         const assistantTemplate = document.querySelector('#message-template-assistant');
         const converter = new showdown.Converter();
         const messages = [];
+        const base_message = "The uploaded PDF is scanned medical documents of a patient. Provide the following information about the patient in a comma separated list: their full legal name, date of birth, sex, living address, email address, phone number, primary insurance name, primary insurance type, primary insurance Member ID number, and primary insurance Group ID number. The primary insurance may also be referred to as the main insurance or first insurance in these documents. The Member ID number and the Group ID number consists of any combination of uppercase letters and numerical digits. There are two possible insurance types, Medicare and Commercial, where Commercial encompassses all insurances that are not Medicare. In the returned list, the phone number should be returned as 10 digits with no dashes, parentheses, or spaces. In the returned list, the sex should be represented as either F for female or M for male. In the returned list, all of the commas should be removed from the living address. If there are multiple phone numbers listed for the patient, the returned list should provide their cell phone number. In the returned list, the date of birth should be written in MM/DD/YYYY format where the month, day, and year are represented numerically. If there are any results that can not be found, write the answer as \'N/A\' in the returned list."
 
         const toBase64 = file => new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -147,6 +148,7 @@
                 pdfPreview.style.display = "none";
                 // Display error message if no file is selected
             }
+
         });
 
         const speechInputButton = document.querySelector("speech-input-button");
@@ -167,7 +169,8 @@
             const file = document.getElementById("file").files[0];
             const fileData = file ? await toBase64(file) : null;
 
-            const message = messageInput.value;
+            // YUBI: can you add a const string to the input value as long as the input value is also a string?
+            const message = base_message + messageInput.value;
 
             const userTemplateClone = userTemplate.content.cloneNode(true);
             userTemplateClone.querySelector(".message-content").innerText = message;

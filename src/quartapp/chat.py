@@ -1,9 +1,10 @@
 import json
 import os
-# mimetypes is part of Python standard library
+# mimetypes and base64 is part of Python standard library
 import mimetypes
 import pymupdf
 from PIL import Image, ImageEnhance, ImageOps # Pillow is a PIL fork
+import base64
 
 import azure.identity.aio
 import openai
@@ -79,6 +80,13 @@ async def shutdown_openai():
 async def index():
     return await render_template("index.html")
 
+# FUNCTION: open image converted from PDF as base64 image
+async def open_image_as_base64(filename):
+    with open(filename, "rb") as image_file:
+        image_data = image_file.read()
+    image_base64 = base64.b64encode(image_data).decode("utf-8")
+    return f"data:image/png;base64,{image_base64}"
+
 # FUNCTION: convert PDF to images
 async def convert_pdf_to_images(filename):
     # This function converts a PDF file to images and saves them as PNG files
@@ -114,8 +122,6 @@ async def preprocess_image(imagename):
 
         # Save the processed image (overwrite original)
         enhanced_image.save(imagename)
-        # debugging statement
-        print(f"Processed and saved image: {imagename}")
 
     except Exception as e:
         # debugging statement
@@ -145,7 +151,8 @@ async def chat_handler():
             images_names_list = convert_pdf_to_images(request_file)
             for image_name in images_names_list:
                 preprocess_image(image_name)
-                user_content.append({"image_url": {"url": image_name, "detail": "auto"}, "type": "image_url"})
+                # make sure to open image as a base64 image
+                user_content.append({"image_url": {"url": open_image_as_base64(image_name), "detail": "auto"}, "type": "image_url"})
             all_messages.append({"role": "user", "content": user_content})
         # if request_file is an image
         elif request_file and mimetypes.guess_type(request_file)[0].startswith("image/"):
