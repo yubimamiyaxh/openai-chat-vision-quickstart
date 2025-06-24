@@ -113,6 +113,7 @@ openai==1.66.3
     # via quartapp (pyproject.toml)
 packaging==24.2
     # via gunicorn
+pillow==11.2.1
 portalocker==2.10.1
     # via msal-extensions
 priority==2.0.0
@@ -131,6 +132,7 @@ pyjwt[crypto]==2.10.1
     # via
     #   msal
     #   pyjwt
+PyMuPDF==1.26.1
 python-dotenv==1.0.1
     # via
     #   quartapp (pyproject.toml)

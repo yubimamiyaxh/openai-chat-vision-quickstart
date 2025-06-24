@@ -1,9 +1,9 @@
 import json
 import os
-# YUBI added this, make sure it is part of the requirements.txt
+# mimetypes is part of Python standard library
 import mimetypes
 import pymupdf
-from PIL import Image
+from PIL import Image, ImageEnhance, ImageOps # Pillow is a PIL fork
 
 import azure.identity.aio
 import openai
@@ -79,9 +79,8 @@ async def shutdown_openai():
 async def index():
     return await render_template("index.html")
 
-# add function to convert PDF to images
-# YUBI: do I need to add fancy symbols or async to the function?
-def convert_pdf_to_images(filename):
+# FUNCTION: convert PDF to images
+async def convert_pdf_to_images(filename):
     # This function converts a PDF file to images and saves them as PNG files
     doc = pymupdf.open(filename)
     img_names_list = []
@@ -100,12 +99,35 @@ def convert_pdf_to_images(filename):
     # return the list of image names
     return img_names_list
 
+# Function: data pre-processing of all images to increase contras
+async def preprocess_image(imagename):
+    try:
+        # Open the image
+        image = Image.open(imagename)
+
+        # Convert to grayscale
+        gray_image = ImageOps.grayscale(image)
+
+        # Increase contrast
+        contrast_enhancer = ImageEnhance.Contrast(gray_image)
+        enhanced_image = contrast_enhancer.enhance(2.0)  # You can adjust factor
+
+        # Save the processed image (overwrite original)
+        enhanced_image.save(imagename)
+        # debugging statement
+        print(f"Processed and saved image: {imagename}")
+
+    except Exception as e:
+        # debugging statement
+        print(f"Error processing image '{imagename}': {e}")
+    return
 
 @bp.post("/chat/stream")
 async def chat_handler():
     request_json = await request.get_json()
     request_messages = request_json["messages"]
-    # get the base64 encoded image from the request or other file like PDF
+    # get the base64 encoded image from the request
+    # YUBI: does this actually only read in that much data, or will it read in a PDF as well? it seems to be reading in a url
     request_file = request_json["context"]["file"]
 
     @stream_with_context
@@ -122,6 +144,7 @@ async def chat_handler():
             # retrieving PDF from the request and converting it to images
             images_names_list = convert_pdf_to_images(request_file)
             for image_name in images_names_list:
+                preprocess_image(image_name)
                 user_content.append({"image_url": {"url": image_name, "detail": "auto"}, "type": "image_url"})
             all_messages.append({"role": "user", "content": user_content})
         # if request_file is an image
@@ -129,6 +152,8 @@ async def chat_handler():
             user_content = []
             user_content.append({"text": request_messages[-1]["content"], "type": "text"})
             # retrieving image from the request
+            # pre-process the image
+            preprocess_image(request_file)
             user_content.append({"image_url": {"url": request_file, "detail": "auto"}, "type": "image_url"})
             all_messages.append({"role": "user", "content": user_content})
         else:

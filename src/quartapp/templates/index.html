@@ -77,6 +77,8 @@
                         </div>
                     </div>
                     <img id="image-preview" class="img-fluid mt-2" style="display: none;" />
+                    <!-- Add display for potential PDF -->
+                    <iframe id="pdf-preview" width="100%" height="500px" style="display: none;"></iframe>
                 </div>
             </form>
         </div>
@@ -105,30 +107,45 @@
 
         const fileInput = document.getElementById("file");
         const imagePreview = document.getElementById("image-preview");
+        const pdfPreview = document.getElementById("pdf-preview");
 
         fileInput.addEventListener("change", async function() {
             const file = fileInput.files[0];
+
+            if (!file) {
+                imagePreview.style.display = "none";
+                // Display error message if no file is selected
+            }
+
+            const fileType = file.type;
+            const fileName = file.name;
+
+            // Check if file is a PDF or image
             // this only works if the mimetypes library is imported in the backend
-            if (file && file.type === 'application/pdf') {
-                // For PDF files, create an embed element to display it
-                var pdfPath = URL.createObjectURL(file);
-                var embed = document.createElement('embed');
-                embed.src = pdfPath;
-                iframe.width = '100%';
-                embed.height = '100%';
-                embed.style.border = 'none';
-                pdfContainer.innerHTML = '';
-                pdfContainer.appendChild(embed);
-                filenameSpan.textContent = file.name;
-                pdfContainer.style.display = 'block';
-                pdfHeader.style.display = 'block';
-            } else if (file) {
-                // For image files, convert to base64 and display
+            if (fileType === "application/pdf") {
+                // preview PDF on the web page
+                const reader = new FileReader();
+
+                reader.onload = function (e) {
+                    const pdfDataUrl = e.target.result;
+                    const iframe = document.getElementById('pdfPreview');
+                    iframe.src = pdfDataUrl;
+                    iframe.style.display = 'block';
+                };
+            
+            imagePreview.style.display = "none";
+            reader.readAsDataURL(file);  // Converts PDF to base64 data URL
+
+            } else if (fileType.startsWith("image/")) {
+               // For image files, convert to base64 and display
                 const fileData = await toBase64(file);
                 imagePreview.src = fileData;
                 imagePreview.style.display = "block";
+                pdfPreview.style.display = "none";
             } else {
                 imagePreview.style.display = "none";
+                pdfPreview.style.display = "none";
+                // Display error message if no file is selected
             }
         });
 
