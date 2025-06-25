@@ -62,6 +62,8 @@
     <script src="https://cdn.jsdelivr.net/npm/@microsoft/ai-chat-protocol@1.0.0-beta.20240610.1/dist/iife/index.js"></script>
     <script src="/static/speech-input.js?v=2"></script>
     <script src="/static/speech-output.js?v=2"></script>
+    <!-- import pdf.js script -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <script>
 
         // Declare relevant constants that refer to HTML elements
@@ -172,8 +174,16 @@
             // YUBI: do I have to do this twice?
             if (fileType === "application/pdf") {
                 console.log("recognized upload as pdf");
-                // preview PDF on the web page
+
+                // set fileData to images
+                // YUBI: add code here
+                // const fileData = await <>;
+
+                base64Images = []; // Reset array on new upload
+
                 const reader = new FileReader();
+
+                // preview PDF on the web page
 
                 reader.onload = function (e) {
                     const pdfDataUrl = e.target.result;
@@ -181,10 +191,43 @@
                     iframe.src = pdfDataUrl;
                     iframe.style.display = 'block';
                 };
-            
+
+                reader.onload = async function () {
+                    const typedArray = new Uint8Array(reader.result);
+                    const pdf = await pdfjsLib.getDocument({ data: typedArray }).promise;
+                    const outputDiv = document.getElementById('output');
+                    outputDiv.innerHTML = '';
+
+                    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                        const page = await pdf.getPage(pageNum);
+                        const viewport = page.getViewport({ scale: 2 });
+                        const canvas = document.createElement('canvas');
+                        const context = canvas.getContext('2d');
+
+                        canvas.width = viewport.width;
+                        canvas.height = viewport.height;
+
+                        await page.render({ canvasContext: context, viewport }).promise;
+
+                        // Convert canvas to Base64 and store
+                        const base64Image = await toBase64(canvas);
+                        base64Images.push(base64Image);
+                        
+                        /*
+                        // (Optional) Display image preview
+                        const img = document.createElement('img');
+                        img.src = base64Image;
+                        img.classList.add('img-fluid', 'my-2');
+                        outputDiv.appendChild(img);
+                        */
+                    }
+                };
+
+                reader.readAsArrayBuffer(file);
+                const fileData = base64Images; // set fileData to array
+                // YUBI: will the model be able to take in an array of images, I might have to concatenate all of the images together
+
                 imagePreview.style.display = "none";
-                // YUBI: why do I need this?
-                reader.readAsDataURL(file);  // Converts PDF to base64 data URL
 
             } else if (fileType.startsWith("image/")) {
                // For image files, convert to base64 and display
@@ -222,6 +265,7 @@
                 // messageDiv.scrollIntoView();
                 const result = await client.getStreamedCompletion(messages, {
                     context: {
+                        // only thing it does is push fileData, which is the base64 encoded image
                         file: fileData,
                         file_name: file ? file.name : null
                     }
