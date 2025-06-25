@@ -90,6 +90,9 @@
         const client = new ChatProtocol.AIChatProtocolClient("/chat");
 
         fileInput.addEventListener("change", async function() {
+
+            console.log("recognized file upload");
+
             const file = fileInput.files[0];
 
             if (!file) {
@@ -104,6 +107,7 @@
 
             // Check if file is a PDF or image
             if (fileType === "application/pdf") {
+                console.log("recognized pdf");
                 // very simple preview PDF on the web page, want to add more navigation abilities later
                 const reader = new FileReader();
 
@@ -113,6 +117,8 @@
                     iframe.src = pdfDataUrl;
                     iframe.style.display = 'block';
                 };
+
+                console.log("displayed pdf");
             
                 imagePreview.style.display = "none";
                 // YUBI: why is this necessary?
@@ -141,6 +147,8 @@
         form.addEventListener("submit", async function(e) {
             e.preventDefault();
 
+            console.log("submit buttom pressed");
+
             // Hide the no-messages-heading when a message is added
             document.getElementById("no-messages-heading").style.display = "none";
 
@@ -149,6 +157,9 @@
 
             // YUBI: can you add a const string to the input value as long as the input value is also a string?
             const message = base_message + messageInput.value;
+
+            console.log("the message sent to the model is:");
+            console.log(message);
 
             // Load uploaded PDF into iframe on right hand side of web page
             const fileType = file.type;
@@ -159,6 +170,7 @@
 
             // YUBI: do I have to do this twice?
             if (fileType === "application/pdf") {
+                console.log("recognized upload as pdf");
                 // preview PDF on the web page
                 const reader = new FileReader();
 
@@ -203,6 +215,8 @@
                 "content": message
             });
 
+            console.log("pushed message");
+
             try {
                 // messageDiv.scrollIntoView();
                 const result = await client.getStreamedCompletion(messages, {
@@ -229,6 +243,7 @@
                         // messageDiv.innerHTML = converter.makeHtml(answer);
                         // messageDiv.scrollIntoView();
                         targetContainer.innerHTML = converter.makeHtml(answer);
+                        console.log("set answer");
 
                     }
                     if (response.error) {
@@ -236,6 +251,9 @@
                         targetContainer.innerHTML = "Error: " + response.error;
                     }
                 }
+
+                console.log("received answer");
+
                 messages.push({
                     "role": "assistant",
                     "content": answer

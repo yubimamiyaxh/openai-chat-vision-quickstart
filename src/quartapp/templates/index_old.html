@@ -169,8 +169,7 @@
             const file = document.getElementById("file").files[0];
             const fileData = file ? await toBase64(file) : null;
 
-            // YUBI: can you add a const string to the input value as long as the input value is also a string?
-            const message = base_message + messageInput.value;
+            const message = messageInput.value;
 
             const userTemplateClone = userTemplate.content.cloneNode(true);
             userTemplateClone.querySelector(".message-content").innerText = message;
