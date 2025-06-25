@@ -96,10 +96,11 @@
             const file = fileInput.files[0];
 
             if (!file) {
-                imagePreview.style.display = "none";
-                pdfPreview.style.display = 'none';
+                // imagePreview.style.display = "none";
+                // pdfPreview.style.display = 'none';
+
                 // Display error message if no file is selected
-                print("Error: no file detected");
+                console.log("Error: no file detected");
             }
 
             const fileType = file.type;
@@ -113,7 +114,7 @@
 
                 reader.onload = function (e) {
                     const pdfDataUrl = e.target.result;
-                    const iframe = document.getElementById('pdfPreview');
+                    const iframe = document.getElementById('pdf-preview');
                     iframe.src = pdfDataUrl;
                     iframe.style.display = 'block';
                 };
@@ -129,7 +130,7 @@
                 const fileData = await toBase64(file);
                 imagePreview.src = fileData;
                 imagePreview.style.display = "block";
-                pdfPreview.style.display = "none";
+                // pdfPreview.style.display = "none";
             }
 
         });
@@ -150,7 +151,7 @@
             console.log("submit buttom pressed");
 
             // Hide the no-messages-heading when a message is added
-            document.getElementById("no-messages-heading").style.display = "none";
+            // document.getElementById("no-messages-heading").style.display = "none";
 
             const file = document.getElementById("file").files[0];
             const fileData = file ? await toBase64(file) : null;
@@ -176,7 +177,7 @@
 
                 reader.onload = function (e) {
                     const pdfDataUrl = e.target.result;
-                    const iframe = document.getElementById('pdfPreview');
+                    const iframe = document.getElementById('pdf-preview');
                     iframe.src = pdfDataUrl;
                     iframe.style.display = 'block';
                 };
@@ -190,12 +191,12 @@
                 const fileData = await toBase64(file);
                 imagePreview.src = fileData;
                 imagePreview.style.display = "block";
-                pdfPreview.style.display = "none";
+                // pdfPreview.style.display = "none";
             } else {
-                imagePreview.style.display = "none";
-                pdfPreview.style.display = "none";
+                // imagePreview.style.display = "none";
+                // pdfPreview.style.display = "none";
                 // Display error message if no file is selected
-                print("Error: no file detected")
+                console.error("Error: no file detected");
             }
 
             // This is for displaying the messages
@@ -236,7 +237,7 @@
                         if (answer == "") {
                             // messageDiv.innerHTML = "";
                             // Should I replace innerHTML instead?
-                            targetContainer.innerHTML = "";
+                            targetContainer.innerHTML = "No answer provided.";
                         }
                         answer += response.delta.content;
 
