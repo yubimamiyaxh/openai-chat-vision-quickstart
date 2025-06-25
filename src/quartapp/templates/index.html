@@ -164,27 +164,21 @@
             console.log("the message sent to the model is:");
             console.log(message);
 
-            // Load uploaded PDF into iframe on right hand side of web page
             const fileType = file.type;
             const fileName = file.name;
 
             // Check if file is a PDF or image
-            // this only works if the mimetypes library is imported in the backend
 
-            // YUBI: do I have to do this twice?
             if (fileType === "application/pdf") {
                 console.log("recognized upload as pdf");
 
-                // set fileData to images
-                // YUBI: add code here
-                // const fileData = await <>;
+                // set fileData to images from pdf
 
                 base64Images = []; // Reset array on new upload
 
                 const reader = new FileReader();
 
-                // preview PDF on the web page
-
+                // preview PDF on the web page: looks really ugly right now, I need to change
                 reader.onload = function (e) {
                     const pdfDataUrl = e.target.result;
                     const iframe = document.getElementById('pdf-preview');
@@ -195,8 +189,10 @@
                 reader.onload = async function () {
                     const typedArray = new Uint8Array(reader.result);
                     const pdf = await pdfjsLib.getDocument({ data: typedArray }).promise;
-                    const outputDiv = document.getElementById('output');
-                    outputDiv.innerHTML = '';
+                    
+                    // this is for displaying the PDF, but it uses a div that I don't have
+                    // const outputDiv = document.getElementById('output');
+                    // outputDiv.innerHTML = '';
 
                     for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
                         const page = await pdf.getPage(pageNum);
