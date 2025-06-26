@@ -1,3 +1,5 @@
+<!-- This is the old html that passes the PDF as a PDF into the python script -->
+
 <!doctype html>
 <html lang="en" class="h-100">
 <head>
@@ -129,7 +131,7 @@
 
                 reader.onload = function (e) {
                     const pdfDataUrl = e.target.result;
-                    const iframe = document.getElementById('pdfPreview');
+                    const iframe = document.getElementById('pdf-preview');
                     iframe.src = pdfDataUrl;
                     iframe.style.display = 'block';
                 };
@@ -173,11 +175,23 @@
 
             const userTemplateClone = userTemplate.content.cloneNode(true);
             userTemplateClone.querySelector(".message-content").innerText = message;
+            
             if (file) {
-                const img = document.createElement("img");
-                img.src = fileData;
-                userTemplateClone.querySelector(".message-file").appendChild(img);
+                if (file.type.startsWith("image/")) {
+                    const img = document.createElement("img");
+                    img.src = fileData;
+                    img.classList.add("img-fluid"); // is this necessary?
+                    userTemplateClone.querySelector(".message-file").appendChild(img);
+                } else if (file.type === "application/pdf") {
+                    const iframe = document.createElement("iframe");
+                    iframe.src = fileData;
+                    iframe.width = "100%";
+                    iframe.height = "300px";
+                    iframe.classList.add("mb-2");
+                    userTemplateClone.querySelector(".message-file").appendChild(iframe);
+                }
             }
+
             targetContainer.appendChild(userTemplateClone);
 
             const assistantTemplateClone = assistantTemplate.content.cloneNode(true);
