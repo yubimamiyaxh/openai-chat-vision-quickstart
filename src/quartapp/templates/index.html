@@ -1,3 +1,5 @@
+<!-- This is the old html that passes the PDF as a PDF into the python script -->
+
 <!doctype html>
 <html lang="en" class="h-100">
 <head>
@@ -15,72 +17,88 @@
 </head>
 <body>
     <main class="h-100 mh-100 d-flex flex-column overflow-hidden justify-content-start">
-        <div class="container-fluid h-100 d-flex flex-column">
-            <!-- Top Content: Chat and Uploaded File Viewer Side-by-Side -->
-            <div id="main-container" class="row flex-grow-1">
-                <!-- Left Side: Chatbot Answer Display -->
-                <div class="col-md-6" id="model-output">
-                    <h5>Patient Information</h5>
-                    <div id="response-box">Upload patient records for analysis</div>
-                </div>
-
-                <!-- Right Side: Uploaded file Viewer -->
-                <div class="col-md-6">
-                    <iframe id="pdf-preview" src="" title="Patient Records Preview"></iframe>
-                    <img id="image-preview" class="img-fluid mt-2" style="display: none;" />
-                </div>
-            </div>
-
-            <!-- Bottom: upload file and ask questions -->
-            <div id="chat-area" class="px-4 py-2 rounded-top-5 text-dark d-flex flex-column justify-content-center">
-                <form id="chat-form">
-                    <div class="d-flex">
-                        <div class="flex-grow-1">
-                            <label for="file" class="form-label" style="color:white">Upload file:</label>
-                            <div class="input-group mb-3">
-                                <i class="bi bi-file-earmark-text input-group-text" aria-hidden="true"></i>
-                                <!-- Enable uploads of PDF, jpg and png files -->
-                                <input id="file" name="file" class="form-control form-control-sm" type="file" accept=".png, .jpg, .pdf" aria-label="Upload File"></input>
-                            </div>
-
-                            <label for="message" class="form-label bi" style="color:white">Provide more detailed information about file or instructions for information extraction (optional):</label>
-                            <div class="input-group">
-
-                                <!-- I eventually want to get rid of speech input button -->
-                                <speech-input-button></speech-input-button>
-                                <!-- may not need to specify rows -->
-                                <input id="message" name="message" class="form-control form-control-sm" type="text" rows="1" placeholder="<Your Message>" aria-label="Ask ChatGPT"></input>
-                                <button type="submit" class="btn btn-primary">Submit</button>
-                            </div>
+        <div id="messages" class="px-4 pb-4 pt-2 flex-grow-1 overflow-y-auto overflow-x-hidden align-items-stretch">
+            <h2 id="no-messages-heading" class="text-center">Extract patient information by uploading patient records</h2>
+            <template id="message-template-user">
+                <div class="toast-container position-static w-100 d-flex flex-column align-items-stretch">
+                    <div class="toast fade show w-75 rounded-3 align-self-end">
+                        <div class="toast-header text-light background-user">
+                            <i class="bi bi-person me-1" aria-hidden="true"></i>
+                            <strong class="me-auto text-capitalize">
+                                User
+                            </strong>
+                        </div>
+                        <div class="toast-body message-file">
+                        </div>
+                        <div class="toast-body message-content">
                         </div>
                     </div>
-                </form>
-            </div>
+                </div>
+            </template>
+
+            <template id="message-template-assistant">
+                <div class="toast-container position-static w-100 d-flex flex-column align-items-stretch">
+                    <div class="toast fade show w-75 rounded-3 align-self-start">
+                        <div class="toast-header text-light background-assistant">
+                            <i class="bi bi-robot me-1" aria-hidden="true"></i>
+                            <strong class="me-auto text-capitalize">
+                                Extracted Patient Information
+                            </strong>
+                        </div>
+                        <div class="toast-body message-content">
+                            <em class="typing-indicator">Generating...</em>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+        <div id="chat-area" class="px-4 py-2 rounded-top-5 text-dark d-flex flex-column justify-content-center">
+            <form id="chat-form">
+                <div class="d-flex">
+                    <div class="flex-grow-1">
+
+
+                        <label for="file" class="form-label" style="color:white">Upload file:</label>
+                        <div class="input-group mb-3">
+                            <i class="bi bi-file-earmark-text input-group-text" aria-hidden="true"></i>
+                            <!-- Enable uploads of PDF, jpg and png files -->
+                            <input id="file" name="file" class="form-control form-control-sm" type="file" accept=".png, .jpg, .pdf" aria-label="Upload File"></input>
+                        </div>
+
+
+                        <label for="message" class="form-label bi" style="color:white">Ask question about file:</label>
+                        <div class="input-group">
+
+                            <!-- I eventually want to get rid of speech input button -->
+                            <speech-input-button></speech-input-button>
+                            <input id="message" name="message" class="form-control form-control-sm" type="text" rows="1" placeholder="<Your Message>" aria-label="Ask ChatGPT"></input>
+                            <button type="submit" class="btn btn-primary">
+                                Submit
+                                <i class="bi bi-send-fill" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <img id="image-preview" class="img-fluid mt-2" style="display: none;" />
+                    <!-- Add display for potential PDF -->
+                    <iframe id="pdf-preview" width="100%" height="500px" style="display: none;"></iframe>
+                </div>
+            </form>
         </div>
     </main>
     <script src="https://cdn.jsdelivr.net/npm/showdown@2.1.0/dist/showdown.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@microsoft/ai-chat-protocol@1.0.0-beta.20240610.1/dist/iife/index.js"></script>
     <script src="/static/speech-input.js?v=2"></script>
     <script src="/static/speech-output.js?v=2"></script>
-    <!-- import pdf.js script -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <script>
-
-        // Declare relevant constants that refer to HTML elements
         const form = document.getElementById("chat-form");
         const messageInput = document.getElementById("message");
-        // const targetContainer = document.getElementById("messages");
-        // const userTemplate = document.querySelector('#message-template-user');
-        // const assistantTemplate = document.querySelector('#message-template-assistant');
-        const targetContainer = document.getElementById("response-box");
-        const converter = new showdown.Converter(); // used to convert Markdown text into HTML dynamically
-        const fileInput = document.getElementById("file");
-        const imagePreview = document.getElementById("image-preview");
-        const pdfPreview = document.getElementById("pdf-preview");
+        const targetContainer = document.getElementById("messages");
+        const userTemplate = document.querySelector('#message-template-user');
+        const assistantTemplate = document.querySelector('#message-template-assistant');
+        const converter = new showdown.Converter();
         const messages = [];
         const base_message = "The uploaded PDF is scanned medical documents of a patient. Provide the following information about the patient in a comma separated list: their full legal name, date of birth, sex, living address, email address, phone number, primary insurance name, primary insurance type, primary insurance Member ID number, and primary insurance Group ID number. The primary insurance may also be referred to as the main insurance or first insurance in these documents. The Member ID number and the Group ID number consists of any combination of uppercase letters and numerical digits. There are two possible insurance types, Medicare and Commercial, where Commercial encompassses all insurances that are not Medicare. In the returned list, the phone number should be returned as 10 digits with no dashes, parentheses, or spaces. In the returned list, the sex should be represented as either F for female or M for male. In the returned list, all of the commas should be removed from the living address. If there are multiple phone numbers listed for the patient, the returned list should provide their cell phone number. In the returned list, the date of birth should be written in MM/DD/YYYY format where the month, day, and year are represented numerically. If there are any results that can not be found, write the answer as \'N/A\' in the returned list."
 
-        // Convert image file to base 64 image
         const toBase64 = file => new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.readAsDataURL(file);
@@ -88,30 +106,27 @@
             reader.onerror = reject;
         });
 
-        // Establish AI model chat protocol
         const client = new ChatProtocol.AIChatProtocolClient("/chat");
 
+        const fileInput = document.getElementById("file");
+        const imagePreview = document.getElementById("image-preview");
+        const pdfPreview = document.getElementById("pdf-preview");
+
         fileInput.addEventListener("change", async function() {
-
-            console.log("recognized file upload");
-
             const file = fileInput.files[0];
 
             if (!file) {
-                // imagePreview.style.display = "none";
-                // pdfPreview.style.display = 'none';
-
+                imagePreview.style.display = "none";
                 // Display error message if no file is selected
-                console.log("Error: no file detected");
             }
 
             const fileType = file.type;
             const fileName = file.name;
 
             // Check if file is a PDF or image
+            // this only works if the mimetypes library is imported in the backend
             if (fileType === "application/pdf") {
-                console.log("recognized pdf");
-                // very simple preview PDF on the web page, want to add more navigation abilities later
+                // preview PDF on the web page
                 const reader = new FileReader();
 
                 reader.onload = function (e) {
@@ -120,24 +135,24 @@
                     iframe.src = pdfDataUrl;
                     iframe.style.display = 'block';
                 };
-
-                console.log("displayed pdf");
             
-                imagePreview.style.display = "none";
-                // YUBI: why is this necessary?
-                reader.readAsDataURL(file);  // Converts PDF to base64 data URL
+            imagePreview.style.display = "none";
+            reader.readAsDataURL(file);  // Converts PDF to base64 data URL
 
             } else if (fileType.startsWith("image/")) {
                // For image files, convert to base64 and display
                 const fileData = await toBase64(file);
                 imagePreview.src = fileData;
                 imagePreview.style.display = "block";
-                // pdfPreview.style.display = "none";
+                pdfPreview.style.display = "none";
+            } else {
+                imagePreview.style.display = "none";
+                pdfPreview.style.display = "none";
+                // Display error message if no file is selected
             }
 
         });
 
-        // I want to remove this button eventually
         const speechInputButton = document.querySelector("speech-input-button");
         speechInputButton.addEventListener("speech-input-result", (event) => {
             messageInput.value += " " + event.detail.transcript.trim();
@@ -147,170 +162,51 @@
             alert(event.detail.error);
         });
 
-        // YUBI: verify that this is correct
-        // create function to merge multiple images into one lage image
-        async function mergeBase64Images(base64ImagesArray) {
-            const images = await Promise.all(
-                base64ImagesArray.map(src => {
-                    return new Promise((resolve, reject) => {
-                        const img = new Image();
-                        img.onload = () => resolve(img);
-                        img.onerror = reject;
-                        img.src = src;
-                    });
-                })
-            );
-
-            // Calculate total width and height (assuming vertical stacking)
-            const width = Math.max(...images.map(img => img.width));
-            const totalHeight = images.reduce((sum, img) => sum + img.height, 0);
-
-            // Create a canvas with total dimensions
-            const canvas = document.createElement('canvas');
-            canvas.width = width;
-            canvas.height = totalHeight;
-            const ctx = canvas.getContext('2d');
-
-            // Draw each image sequentially
-            let currentY = 0;
-            for (const img of images) {
-                ctx.drawImage(img, 0, currentY, img.width, img.height);
-                currentY += img.height;
-            }
-
-            // Return merged Base64 image
-            return canvas.toDataURL('image/png');
-        }
-
         form.addEventListener("submit", async function(e) {
             e.preventDefault();
 
             // Hide the no-messages-heading when a message is added
-            // document.getElementById("no-messages-heading").style.display = "none";
+            document.getElementById("no-messages-heading").style.display = "none";
 
             const file = document.getElementById("file").files[0];
             const fileData = file ? await toBase64(file) : null;
 
-            // YUBI: can you add a const string to the input value as long as the input value is also a string?
-            const message = base_message + messageInput.value;
+            const message = messageInput.value;
 
-            console.log("the message sent to the model is:");
-            console.log(message);
-
-            const fileType = file.type;
-            const fileName = file.name;
-
-            // Check if file is a PDF or image
-
-            if (fileType === "application/pdf") {
-                console.log("recognized upload as pdf");
-
-                // set fileData to images from pdf
-
-                base64Images = []; // Reset array on new upload
-
-                const reader = new FileReader();
-
-                // preview PDF on the web page: looks really ugly right now, I need to change
-                reader.onload = function (e) {
-                    const pdfDataUrl = e.target.result;
-                    const iframe = document.getElementById('pdf-preview');
-                    iframe.src = pdfDataUrl;
-                    iframe.style.display = 'block';
-                };
-
-                reader.onload = async function () {
-                    const typedArray = new Uint8Array(reader.result);
-                    const pdf = await pdfjsLib.getDocument({ data: typedArray }).promise;
-                    
-                    // this is for displaying the PDF, but it uses a div that I don't have
-                    // const outputDiv = document.getElementById('output');
-                    // outputDiv.innerHTML = '';
-
-                    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-                        const page = await pdf.getPage(pageNum);
-                        const viewport = page.getViewport({ scale: 2 });
-                        const canvas = document.createElement('canvas');
-                        const context = canvas.getContext('2d');
-
-                        canvas.width = viewport.width;
-                        canvas.height = viewport.height;
-
-                        await page.render({ canvasContext: context, viewport }).promise;
-
-                        // Convert canvas to Base64 and store
-                        const base64Image = await toBase64(canvas);
-                        base64Images.push(base64Image);
-                        
-                        /*
-                        // (Optional) Display image preview
-                        const img = document.createElement('img');
-                        img.src = base64Image;
-                        img.classList.add('img-fluid', 'my-2');
-                        outputDiv.appendChild(img);
-                        */
-                    }
-                };
-
-                // YUBI: check to see if function call works
-                c(base64Images)
-                    .then(mergedBase64 => {
-                    console.log("Merged Base64 Image:", mergedBase64);
-
-                    // Optionally display it
-                    /// const imgElement = document.createElement('img');
-                    // imgElement.src = mergedBase64;
-                    // document.body.appendChild(imgElement);
-                    })
-                    .catch(console.error);
-
-                reader.readAsArrayBuffer(file);
-
-                // Try debugging by only passing in one image from PDF
-                // const fileData = mergedBase64; // set fileData to merged image
-                
-                // FOR DEBUGGING ONLY
-                const fileData = base64Images[0];
-
-                imagePreview.style.display = "none";
-
-            } else if (fileType.startsWith("image/")) {
-               // For image files, convert to base64 and display
-                const fileData = await toBase64(file);
-                imagePreview.src = fileData;
-                imagePreview.style.display = "block";
-                // pdfPreview.style.display = "none";
-            } else {
-                // imagePreview.style.display = "none";
-                // pdfPreview.style.display = "none";
-                // Display error message if no file is selected
-                console.error("Error: no file detected");
+            const userTemplateClone = userTemplate.content.cloneNode(true);
+            userTemplateClone.querySelector(".message-content").innerText = message;
+            
+            if (file) {
+                if (file.type.startsWith("image/")) {
+                    const img = document.createElement("img");
+                    img.src = fileData;
+                    img.classList.add("img-fluid"); // is this necessary?
+                    userTemplateClone.querySelector(".message-file").appendChild(img);
+                } else if (file.type === "application/pdf") {
+                    const iframe = document.createElement("iframe");
+                    iframe.src = fileData;
+                    iframe.width = "100%";
+                    iframe.height = "300px";
+                    iframe.classList.add("mb-2");
+                    userTemplateClone.querySelector(".message-file").appendChild(iframe);
+                }
             }
 
-            // This is for displaying the messages
-            /*
-            const userTemplateClone = userTemplate.content.cloneNode(true);
-
-            userTemplateClone.querySelector(".message-content").innerText = message;
             targetContainer.appendChild(userTemplateClone);
 
             const assistantTemplateClone = assistantTemplate.content.cloneNode(true);
             let messageDiv = assistantTemplateClone.querySelector(".message-content");
             targetContainer.appendChild(assistantTemplateClone);
-            */
 
             messages.push({
                 "role": "user",
                 "content": message
             });
 
-            console.log("pushed message");
-
             try {
-                // messageDiv.scrollIntoView();
+                messageDiv.scrollIntoView();
                 const result = await client.getStreamedCompletion(messages, {
                     context: {
-                        // only thing it does is push fileData, which is the base64 encoded image
                         file: fileData,
                         file_name: file ? file.name : null
                     }
@@ -324,25 +220,16 @@
                     if (response.delta.content) {
                         // Clear out the DIV if its the first answer chunk we've received
                         if (answer == "") {
-                            // messageDiv.innerHTML = "";
-                            // Should I replace innerHTML instead?
-                            targetContainer.innerHTML = "No answer provided.";
+                            messageDiv.innerHTML = "";
                         }
                         answer += response.delta.content;
-
-                        // messageDiv.innerHTML = converter.makeHtml(answer);
-                        // messageDiv.scrollIntoView();
-                        targetContainer.innerHTML = converter.makeHtml(answer);
-
+                        messageDiv.innerHTML = converter.makeHtml(answer);
+                        messageDiv.scrollIntoView();
                     }
                     if (response.error) {
-                        // messageDiv.innerHTML = "Error: " + response.error;
-                        targetContainer.innerHTML = "Error: " + response.error;
+                        messageDiv.innerHTML = "Error: " + response.error;
                     }
                 }
-
-                console.log("received answer");
-
                 messages.push({
                     "role": "assistant",
                     "content": answer
@@ -352,12 +239,10 @@
 
                 const speechOutput = document.createElement("speech-output-button");
                 speechOutput.setAttribute("text", answer);
-                // messageDiv.appendChild(speechOutput);
-                targetContainer.appendChild(speechOutput);
+                messageDiv.appendChild(speechOutput);
                 messageInput.focus();
             } catch (error) {
-                // messageDiv.innerHTML = "Error: " + error;
-                targetContainer.innerHTML = "Error: " + error;
+                messageDiv.innerHTML = "Error: " + error;
             }
         });
     </script>
