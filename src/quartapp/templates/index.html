@@ -185,8 +185,6 @@
         form.addEventListener("submit", async function(e) {
             e.preventDefault();
 
-            console.log("submit buttom pressed");
-
             // Hide the no-messages-heading when a message is added
             // document.getElementById("no-messages-heading").style.display = "none";
 
@@ -267,7 +265,12 @@
                     .catch(console.error);
 
                 reader.readAsArrayBuffer(file);
-                const fileData = mergedBase64; // set fileData to merged image
+
+                // Try debugging by only passing in one image from PDF
+                // const fileData = mergedBase64; // set fileData to merged image
+                
+                // FOR DEBUGGING ONLY
+                const fileData = base64Images[0];
 
                 imagePreview.style.display = "none";
 
@@ -330,7 +333,6 @@
                         // messageDiv.innerHTML = converter.makeHtml(answer);
                         // messageDiv.scrollIntoView();
                         targetContainer.innerHTML = converter.makeHtml(answer);
-                        console.log("set answer");
 
                     }
                     if (response.error) {

@@ -148,6 +148,19 @@ async def chat_handler():
         all_messages = request_messages[0:-1]
 
         user_content = []
+
+        # FOR DEBUGGING
+        if (request_file):
+            user_content.append({"text": request_messages[-1]["content"], "type": "text"})
+            # retrieving image from the request
+            # pre-process the image
+            await preprocess_image(request_file)
+            user_content.append({"image_url": {"url": request_file, "detail": "auto"}, "type": "image_url"})
+            all_messages.append({"role": "user", "content": user_content})
+        else:
+            all_messages.append(request_messages[-1])
+        
+        '''
         # YUBI: is this the correct kind of code to specify pdf?
         if request_file and mimetypes.guess_type(request_file)[0] == "application/pdf":
             user_content.append({"text": request_messages[-1]["content"], "type": "text"})
@@ -168,6 +181,7 @@ async def chat_handler():
             all_messages.append({"role": "user", "content": user_content})
         else:
             all_messages.append(request_messages[-1])
+        '''
 
         chat_coroutine = bp.openai_client.chat.completions.create(
             # Azure Open AI takes the deployment name as the model name
