@@ -147,6 +147,41 @@
             alert(event.detail.error);
         });
 
+        // YUBI: verify that this is correct
+        // create function to merge multiple images into one lage image
+        async function mergeBase64Images(base64ImagesArray) {
+            const images = await Promise.all(
+                base64ImagesArray.map(src => {
+                    return new Promise((resolve, reject) => {
+                        const img = new Image();
+                        img.onload = () => resolve(img);
+                        img.onerror = reject;
+                        img.src = src;
+                    });
+                })
+            );
+
+            // Calculate total width and height (assuming vertical stacking)
+            const width = Math.max(...images.map(img => img.width));
+            const totalHeight = images.reduce((sum, img) => sum + img.height, 0);
+
+            // Create a canvas with total dimensions
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = totalHeight;
+            const ctx = canvas.getContext('2d');
+
+            // Draw each image sequentially
+            let currentY = 0;
+            for (const img of images) {
+                ctx.drawImage(img, 0, currentY, img.width, img.height);
+                currentY += img.height;
+            }
+
+            // Return merged Base64 image
+            return canvas.toDataURL('image/png');
+        }
+
         form.addEventListener("submit", async function(e) {
             e.preventDefault();
 
@@ -219,9 +254,20 @@
                     }
                 };
 
+                // YUBI: check to see if function call works
+                mergeBase64Images(base64Images)
+                    .then(mergedBase64 => {
+                    console.log("Merged Base64 Image:", mergedBase64);
+
+                    // Optionally display it
+                    /// const imgElement = document.createElement('img');
+                    // imgElement.src = mergedBase64;
+                    // document.body.appendChild(imgElement);
+                    })
+                    .catch(console.error);
+
                 reader.readAsArrayBuffer(file);
-                const fileData = base64Images; // set fileData to array
-                // YUBI: will the model be able to take in an array of images, I might have to concatenate all of the images together
+                const fileData = mergedBase64; // set fileData to merged image
 
                 imagePreview.style.display = "none";
 
