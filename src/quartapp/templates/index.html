@@ -89,6 +89,11 @@
     <script src="https://cdn.jsdelivr.net/npm/@microsoft/ai-chat-protocol@1.0.0-beta.20240610.1/dist/iife/index.js"></script>
     <script src="/static/speech-input.js?v=2"></script>
     <script src="/static/speech-output.js?v=2"></script>
+
+    <!-- Add PDF.js dependencies -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
+    
     <script>
         const form = document.getElementById("chat-form");
         const messageInput = document.getElementById("message");
@@ -257,10 +262,15 @@
                     img.classList.add("img-fluid"); // is this necessary?
                     userTemplateClone.querySelector(".message-file").appendChild(img);
                 } else if (file.type === "application/pdf" || fileName.endsWith(".pdf")) {
+                    // it should recognize pdf bc it displays it well
+                    
                     // try to convert all pages of PDF to an image and merge it into one large image
                     // inspired by index_new.html
 
                     // it looks like this can successfully read in a PDF and display it
+                    // I don't care about display for now
+
+                    /*
                     const displayData = file ? await toBase64(file) : null;
 
                     // display PDF
@@ -270,12 +280,13 @@
                     iframe.height = "300px";
                     iframe.classList.add("mb-2");
                     userTemplateClone.querySelector(".message-file").appendChild(iframe);
+                    */
 
                     // Convert PDF to images
                     const base64Images = await convertPDFtoBase64Images(file);
 
                     // merge images into one
-                    const mergedBase64 = mergeBase64Images(base64Images);
+                    const mergedBase64 = await mergeBase64Images(base64Images);
                     // reader.readAsArrayBuffer(file);
                     fileDataTemp = mergedBase64; // set fileDataTemp to merged image
 
