@@ -162,86 +162,14 @@
             alert(event.detail.error);
         });
 
-        // add helper function to convert PDF to base64 images
-        async function convertPDFtoBase64Images(file) {
-            const pdfjsLib = window["pdfjs-dist/build/pdf"];
-            pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-
-            const reader = new FileReader();
-            const arrayBuffer = await new Promise((resolve, reject) => {
-                reader.onload = () => resolve(reader.result);
-                reader.onerror = reject;
-                reader.readAsArrayBuffer(file);
-            });
-
-            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-            const base64Images = [];
-
-            for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-                const page = await pdf.getPage(pageNum);
-                const viewport = page.getViewport({ scale: 2 });
-                const canvas = document.createElement("canvas");
-                const context = canvas.getContext("2d");
-                canvas.width = viewport.width;
-                canvas.height = viewport.height;
-
-                await page.render({ canvasContext: context, viewport }).promise;
-
-                const base64Image = canvas.toDataURL("image/png");
-                base64Images.push(base64Image);
-            }
-
-            return base64Images;
-        }
-
-        // YUBI: I will need to check this function
-        // create function to merge multiple images into one lage image
-        async function mergeBase64Images(base64ImagesArray) {
-            const images = await Promise.all(
-                base64ImagesArray.map(src => {
-                    return new Promise((resolve, reject) => {
-                        const img = new Image();
-                        img.onload = () => resolve(img);
-                        img.onerror = reject;
-                        img.src = src;
-                    });
-                })
-            );
-
-            // Calculate total width and height (assuming vertical stacking)
-            const width = Math.max(...images.map(img => img.width));
-            const totalHeight = images.reduce((sum, img) => sum + img.height, 0);
-
-            // Create a canvas with total dimensions
-            const canvas = document.createElement('canvas');
-            canvas.width = width;
-            canvas.height = totalHeight;
-            const ctx = canvas.getContext('2d');
-
-            // Draw each image sequentially
-            let currentY = 0;
-            for (const img of images) {
-                ctx.drawImage(img, 0, currentY, img.width, img.height);
-                currentY += img.height;
-            }
-
-            // Return merged Base64 image
-            return canvas.toDataURL('image/png');
-        }
-
-
         form.addEventListener("submit", async function(e) {
             e.preventDefault();
-
-            // add more debugging statements with following
-            // messageDiv.innerHTML = "error message"
 
             // Hide the no-messages-heading when a message is added
             document.getElementById("no-messages-heading").style.display = "none";
 
             const file = document.getElementById("file").files[0];
             const fileData = file ? await toBase64(file) : null;
-            const fileName = file.name.toLowerCase();
 
             const message = messageInput.value;
 
@@ -254,36 +182,16 @@
                     img.src = fileData;
                     img.classList.add("img-fluid"); // is this necessary?
                     userTemplateClone.querySelector(".message-file").appendChild(img);
-                } else if (file.type === "application/pdf" || fileName.endsWith(".pdf")) {
-                    // try to convert all pages of PDF to an image and merge it into one large image
-                    // inspired by index_new.html
-
-                    // display PDF
+                } else if (file.type === "application/pdf") {
                     const iframe = document.createElement("iframe");
                     iframe.src = fileData;
                     iframe.width = "100%";
                     iframe.height = "300px";
                     iframe.classList.add("mb-2");
                     userTemplateClone.querySelector(".message-file").appendChild(iframe);
-
-                    // Convert PDF to images
-                    const base64Images = await convertPDFtoBase64Images(file);
-
-                    // YUBI: check to see if function call works
-                    c(base64Images)
-                        .then(mergedBase64 => {
-                            console.log("Merged Base64 Image:", mergedBase64);
-                        })
-                        .catch(console.error);
-
-                    reader.readAsArrayBuffer(file);
-
-                    const fileData = mergedBase64; // set fileData to merged image
-
-                    imagePreview.style.display = "none";
                 }
             }
-            
+
             targetContainer.appendChild(userTemplateClone);
 
             const assistantTemplateClone = assistantTemplate.content.cloneNode(true);

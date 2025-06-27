@@ -189,21 +189,20 @@
             // document.getElementById("no-messages-heading").style.display = "none";
 
             const file = document.getElementById("file").files[0];
+            // what we need is for fileData to be good for PDFs as well
+            // right now, toBase64 really only works on converting a single image to base64
             const fileData = file ? await toBase64(file) : null;
 
             // YUBI: can you add a const string to the input value as long as the input value is also a string?
             const message = base_message + messageInput.value;
 
-            console.log("the message sent to the model is:");
-            console.log(message);
-
             const fileType = file.type;
             const fileName = file.name;
 
             // Check if file is a PDF or image
+            // this doesn't work because mimetypes is designed for filenames or URLs, not Base64 strings
 
             if (fileType === "application/pdf") {
-                console.log("recognized upload as pdf");
 
                 // set fileData to images from pdf
 
