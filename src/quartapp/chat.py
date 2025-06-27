@@ -144,7 +144,38 @@ async def chat_handler():
         # If PDF
         if request_file and mimetypes.guess_type(request_file)[0] == "application/pdf":
             image_names = await convert_pdf_to_images(request_file)
+
+            # TEST ON ONLY FIRST PAGE FOR DEBUGGING
+            curr_image = await open_image_as_base64(image_names[0])
+
+            try:
+                await preprocess_image(curr_image)
+
+                user_content = [
+                    {"text": final_user_message, "type": "text"},
+                    {"image_url": {"url": curr_image, "detail": "auto"}, "type": "image_url"}
+                ]
+                messages = all_messages + [{"role": "user", "content": user_content}]
+                
+                chat_coroutine = bp.openai_client.chat.completions.create(
+                    model=bp.model_name,
+                    messages=messages,
+                    stream=True,
+                    temperature=request_json.get("temperature", 0.5),
+                )
+
+                async for event in await chat_coroutine:
+                    event_dict = event.model_dump()
+                    if event_dict["choices"]:
+                        delta = event_dict["choices"][0]["delta"]
+                        if "content" in delta:
+                            yield json.dumps({'delta': {'content': delta['content']}}) + "\n"
+
+            except Exception as e:
+                yield json.dumps({'error': str(e)}) + "\n"
             
+            # comment out for DEBUGGING
+            '''
             for i, image_name in enumerate(image_names):
                 try:
                     await preprocess_image(image_name)
@@ -175,6 +206,7 @@ async def chat_handler():
 
                 except Exception as e:
                     yield json.dumps({'error': str(e)}) + "\n"
+            '''
 
         # If single image
         elif request_file and mimetypes.guess_type(request_file)[0].startswith("image/"):
