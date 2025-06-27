@@ -15,8 +15,10 @@ def create_app():
 
     app = Quart(__name__)
 
-    from . import chat_multistream  # noqa
+    # I always want this to be chat
+    # Why did it change?
+    from . import chat  # noqa
 
-    app.register_blueprint(chat_multistream.bp)
+    app.register_blueprint(chat.bp)
 
     return app
