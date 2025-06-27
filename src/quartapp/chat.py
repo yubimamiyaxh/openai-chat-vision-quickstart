@@ -1,9 +1,17 @@
 # This is a new chat.py file that will hopefully take in large PDFs
 # chunk them into smaller PDFs then convert them to images, which are then iteratively called to the AI model
-# and then the answers are all concatenated together and returned to front-end                                                                                                                                                                                                                                                                                        
+# and then the answers are all concatenated together and returned to front-end
 
 import json
 import os
+
+# import additional packages
+from quart import Blueprint, request, jsonify
+import fitz  # PyMuPDF
+from PIL import Image
+from io import BytesIO
+import base64
+
 
 import azure.identity.aio
 import openai
@@ -79,43 +87,109 @@ async def shutdown_openai():
 async def index():
     return await render_template("index.html")
 
+async def convert_pdf_page_to_image(page):
+    """Convert a PyMuPDF page to a PIL image."""
+    pix = page.get_pixmap(dpi=200)
+    img_bytes = pix.tobytes("png")
+    return Image.open(BytesIO(img_bytes))
 
-@bp.post("/chat/stream")
-async def chat_handler():
-    request_json = await request.get_json()
-    request_messages = request_json["messages"]
-    # get the base64 encoded image from the request
-    image = request_json["context"]["file"]
+async def image_to_base64(img: Image.Image):
+    """Convert a PIL image to a base64 string."""
+    buffered = BytesIO()
+    img.save(buffered, format="PNG")
+    return base64.b64encode(buffered.getvalue()).decode("utf-8")
 
-    @stream_with_context
-    async def response_stream():
-        # This sends all messages, so API request may exceed token limits
-        all_messages = [
-            {"role": "system", "content": "You are a helpful assistant."},
-        ] + request_messages[0:-1]
-        all_messages = request_messages[0:-1]
-        if image:
-            user_content = []
-            user_content.append({"text": request_messages[-1]["content"], "type": "text"})
-            user_content.append({"image_url": {"url": image, "detail": "auto"}, "type": "image_url"})
-            all_messages.append({"role": "user", "content": user_content})
-        else:
-            all_messages.append(request_messages[-1])
+async def call_model_on_image(image_base64, user_message):
+    """Dummy placeholder — replace with actual model call logic."""
+    # Example: send to model via HTTP or local function
+    
+    # This sends all messages, so API request may exceed token limits
+    all_messages = [{"role": "system", "content": "You are a helpful assistant."}]
+    if image_base64:
+        user_content = []
+        user_content.append({"text": user_message, "type": "text"})
+        user_content.append({"image_url": {"url": f"data:image/png;base64,{image_base64}", "detail": "auto"}, "type": "image_url"})
+        all_messages.append({"role": "user", "content": user_content})
 
-        chat_coroutine = bp.openai_client.chat.completions.create(
-            # Azure Open AI takes the deployment name as the model name
-            model=bp.model_name,
-            messages=all_messages,
-            stream=True,
-            temperature=request_json.get("temperature", 0.5),
-        )
-        try:
-            async for event in await chat_coroutine:
-                event_dict = event.model_dump()
-                if event_dict["choices"]:
-                    yield json.dumps(event_dict["choices"][0], ensure_ascii=False) + "\n"
-        except Exception as e:
-            current_app.logger.error(e)
-            yield json.dumps({"error": str(e)}, ensure_ascii=False) + "\n"
+    # send to model
+    chat_coroutine = bp.openai_client.chat.completions.create(
+        # Azure Open AI takes the deployment name as the model name
+        model=bp.model_name,
+        messages=all_messages,
+        stream=True,
+        temperature=0.5,
+    )
 
-    return Response(response_stream())
+    # save answers
+    response_text = ""
+    async for chunk in chat_coroutine:
+        if chunk and chunk.choices:
+            delta = chunk.choices[0].delta
+            if delta and hasattr(delta, "content") and delta.content:
+                response_text += delta.content
+
+    return response_text
+
+async def summarize_answers(partials, message):
+    """Aggregate partial answers into a single string."""
+    partials_connected = "\n".join(partials)
+    # call model with final message prompt
+    all_messages = [{"role": "system", "content": "You are a helpful assistant."}]
+
+    # IDK if this check is necessary
+    if partials_connected:
+        user_content = []
+        user_content.append({"text": partials_connected, "type": "text"})
+        user_content.append({"text": message "type": "text"})
+        all_messages.append({"role": "user", "content": user_content})
+
+    # send to model
+    chat_coroutine = bp.openai_client.chat.completions.create(
+        # Azure Open AI takes the deployment name as the model name
+        model=bp.model_name,
+        messages=all_messages,
+        stream=True,
+        temperature=0.5,
+    )
+
+    # save answers
+    response_text = ""
+    async for chunk in chat_coroutine:
+        if chunk and chunk.choices:
+            delta = chunk.choices[0].delta
+            if delta and hasattr(delta, "content") and delta.content:
+                response_text += delta.content
+
+    return response_text
+
+# app is not defined
+@bp.route('/process_pdf', methods=['POST'])
+async def process_pdf():
+    uploaded_file = (await request.files)['file']
+    user_message = (await request.form).get('message', '')
+
+    pdf_data = await uploaded_file.read()
+    doc = fitz.open(stream=pdf_data, filetype="pdf")
+
+    partial_answers = []
+
+    for i in range(len(doc)):  # One page per iteration
+        subdoc = fitz.open()
+        subdoc.insert_pdf(doc, from_page=i, to_page=i)
+
+        # Convert that single-page doc to image
+        page = subdoc[0]
+        pil_image = await convert_pdf_page_to_image(page)
+        img_base64 = await image_to_base64(pil_image)
+
+        # Call AI model
+        result = await call_model_on_image(img_base64, user_message)
+        partial_answers.append(result)
+
+    # YUBI; this should ask model to group all information together
+    final_prompt = "Enter final prompt here"
+    # Final aggregation step
+    final_answer = await summarize_answers(partial_answers, final_prompt)
+
+    # what is jsonify?
+    return jsonify({"answer": final_answer})
