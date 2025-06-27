@@ -205,6 +205,8 @@
 
             try {
                 messageDiv.scrollIntoView();
+
+                // getStreamedCompletion assumes that model returns RAW json chunks from OpenAI, I want to stay using the AIChatProtocol 
                 const result = await client.getStreamedCompletion(messages, {
                     context: {
                         file: fileData,

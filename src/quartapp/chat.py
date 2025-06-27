@@ -171,10 +171,10 @@ async def chat_handler():
                         if event_dict["choices"]:
                             delta = event_dict["choices"][0]["delta"]
                             if "content" in delta:
-                                yield f"data: {json.dumps({'content': delta['content']})}\n\n"
+                                yield json.dumps({'delta': {'content': delta['content']}}) + "\n"
 
                 except Exception as e:
-                    yield f"data: {json.dumps({'error': f'Error processing page {i+1}: {str(e)}'})}\n\n"
+                    yield json.dumps({'error': str(e)}) + "\n"
 
         # If single image
         elif request_file and mimetypes.guess_type(request_file)[0].startswith("image/"):
@@ -199,10 +199,10 @@ async def chat_handler():
                     if event_dict["choices"]:
                         delta = event_dict["choices"][0]["delta"]
                         if "content" in delta:
-                            yield f"data: {json.dumps({'content': delta['content']})}\n\n"
+                            yield json.dumps({'delta': {'content': delta['content']}}) + "\n"
 
             except Exception as e:
-                yield f"data: {json.dumps({'error': str(e)})}\n\n"
+                yield json.dumps({'error': str(e)}) + "\n"
 
         # No file (text only)
         else:
@@ -221,9 +221,9 @@ async def chat_handler():
                     if event_dict["choices"]:
                         delta = event_dict["choices"][0]["delta"]
                         if "content" in delta:
-                            yield f"data: {json.dumps({'content': delta['content']})}\n\n"
+                            yield json.dumps({'delta': {'content': delta['content']}}) + "\n"
 
             except Exception as e:
-                yield f"data: {json.dumps({'error': str(e)})}\n\n"
+                yield json.dumps({'error': str(e)}) + "\n"
 
-    return Response(response_stream(), content_type="text/event-stream")
+    return Response(response_stream(), content_type="application/json")
