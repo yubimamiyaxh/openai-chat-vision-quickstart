@@ -1,8 +1,13 @@
-# This is the original chat.py file from the source GitHub
-# Only passes one image to the AI Model
+# Only processes PDFs, inspired by chat_pdf_images.ipynb
 
 import json
 import os
+# mimetypes and base64 is part of Python standard library
+import mimetypes
+import pymupdf
+from PIL import Image, ImageEnhance, ImageOps # Pillow is a PIL fork
+import base64
+
 
 import azure.identity.aio
 import openai
@@ -17,6 +22,7 @@ from quart import (
 
 bp = Blueprint("chat", __name__, template_folder="templates", static_folder="static")
 
+# load_dotenv(".env", override=True)
 
 @bp.before_app_serving
 async def configure_openai():
@@ -78,43 +84,59 @@ async def shutdown_openai():
 async def index():
     return await render_template("index.html")
 
+async def open_image_as_base64(filename):
+    with open(filename, "rb") as image_file:
+        image_data = image_file.read()
+    image_base64 = base64.b64encode(image_data).decode("utf-8")
+    return f"data:image/png;base64,{image_base64}"
+
+# Currently not being used
+async def convert_pdf_to_images(filename):
+    doc = pymupdf.open(filename)
+    for i in range(doc.page_count):
+        doc = pymupdf.open(filename)
+        page = doc.load_page(i)
+        pix = page.get_pixmap()
+        original_img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+        original_img.save(f"page_{i}.png")
 
 @bp.post("/chat/stream")
 async def chat_handler():
     request_json = await request.get_json()
     request_messages = request_json["messages"]
     # get the base64 encoded image from the request
-    image = request_json["context"]["file"]
+    # YUBI: does this actually only read in that much data, or will it read in a PDF as well? it seems to be reading in a url
+    request_file = request_json["context"]["file"]
 
     @stream_with_context
     async def response_stream():
-        # This sends all messages, so API request may exceed token limits
-        all_messages = [
-            {"role": "system", "content": "You are a helpful assistant."},
-        ] + request_messages[0:-1]
-        all_messages = request_messages[0:-1]
-        if image:
-            user_content = []
-            user_content.append({"text": request_messages[-1]["content"], "type": "text"})
-            user_content.append({"image_url": {"url": image, "detail": "auto"}, "type": "image_url"})
-            all_messages.append({"role": "user", "content": user_content})
-        else:
-            all_messages.append(request_messages[-1])
+        if (request_file):
+            doc = pymupdf.open(request_file)
+            for i in range(doc.page_count):
+                doc = pymupdf.open(request_file)
+                page = doc.load_page(i)
+                pix = page.get_pixmap()
+                original_img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                original_img.save(f"page_{i}.png")
+            user_content = [{"text": "What information is listed in this document?", "type": "text"}]
+            # DEBUGGING statement only
+            user_content.append({"text": "Finish every response made with the sign off, \'This information is to the best of my knowledge\'.", "type": "text"})
+            for i in range(doc.page_count):
+                user_content.append({"image_url": {"url": open_image_as_base64(f"page_{i}.png")}, "type": "image_url"})
 
-        chat_coroutine = bp.openai_client.chat.completions.create(
-            # Azure Open AI takes the deployment name as the model name
-            model=bp.model_name,
-            messages=all_messages,
-            stream=True,
-            temperature=request_json.get("temperature", 0.5),
-        )
-        try:
+            messages= [{"role": "user", "content": user_content}]
+            chat_coroutine = bp.openai_client.chat.completions.create(
+                model=bp.model_name,
+                messages=messages,
+                stream=True, 
+                temperature=request_json.get("temperature", 0.5),
+            )
+
             async for event in await chat_coroutine:
                 event_dict = event.model_dump()
                 if event_dict["choices"]:
-                    yield json.dumps(event_dict["choices"][0], ensure_ascii=False) + "\n"
-        except Exception as e:
-            current_app.logger.error(e)
-            yield json.dumps({"error": str(e)}, ensure_ascii=False) + "\n"
+                    delta = event_dict["choices"][0]["delta"]
+                    if "content" in delta:
+                        yield json.dumps({'delta': {'content': delta['content']}}) + "\n"
 
-    return Response(response_stream())
+    return Response(response_stream(), content_type="application/json")
