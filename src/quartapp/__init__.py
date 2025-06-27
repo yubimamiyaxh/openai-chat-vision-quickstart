@@ -17,8 +17,8 @@ def create_app():
 
     # I always want this to be chat
     # Why did it change?
-    from . import chat_pdf  # noqa
+    from . import chat  # noqa
 
-    app.register_blueprint(chat_pdf.bp)
+    app.register_blueprint(chat.bp)
 
     return app
