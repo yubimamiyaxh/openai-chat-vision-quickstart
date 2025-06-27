@@ -1,3 +1,5 @@
+# Only processes PDFs, inspired by chat_pdf_images.ipynb
+
 import json
 import os
 # mimetypes and base64 is part of Python standard library
@@ -5,6 +7,7 @@ import mimetypes
 import pymupdf
 from PIL import Image, ImageEnhance, ImageOps # Pillow is a PIL fork
 import base64
+
 
 import azure.identity.aio
 import openai
@@ -19,6 +22,7 @@ from quart import (
 
 bp = Blueprint("chat", __name__, template_folder="templates", static_folder="static")
 
+# load_dotenv(".env", override=True)
 
 @bp.before_app_serving
 async def configure_openai():
@@ -80,53 +84,21 @@ async def shutdown_openai():
 async def index():
     return await render_template("index.html")
 
-# FUNCTION: open image converted from PDF as base64 image
 async def open_image_as_base64(filename):
     with open(filename, "rb") as image_file:
         image_data = image_file.read()
     image_base64 = base64.b64encode(image_data).decode("utf-8")
     return f"data:image/png;base64,{image_base64}"
 
-# FUNCTION: convert PDF to images
+# Currently not being used
 async def convert_pdf_to_images(filename):
-    # This function converts a PDF file to images and saves them as PNG files
     doc = pymupdf.open(filename)
-    img_names_list = []
-    # Iterate through each page in the PDF and save the image
     for i in range(doc.page_count):
         doc = pymupdf.open(filename)
         page = doc.load_page(i)
         pix = page.get_pixmap()
         original_img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-        img_names_list.append(f"page_{i}.png")
-        # I need to find a way to delete all of the saved images after the request is done
-        # Or maybe it will just replace them when you run it again
-        # Save the image as a PNG file in the current directory (src), switch to a different folder
         original_img.save(f"page_{i}.png")
-
-    # return the list of image names
-    return img_names_list
-
-# Function: data pre-processing of all images to increase contras
-async def preprocess_image(imagename):
-    try:
-        # Open the image
-        image = Image.open(imagename)
-
-        # Convert to grayscale
-        gray_image = ImageOps.grayscale(image)
-
-        # Increase contrast
-        contrast_enhancer = ImageEnhance.Contrast(gray_image)
-        enhanced_image = contrast_enhancer.enhance(2.0)  # You can adjust factor
-
-        # Save the processed image (overwrite original)
-        enhanced_image.save(imagename)
-
-    except Exception as e:
-        # debugging statement
-        print(f"Error processing image '{imagename}': {e}")
-    return
 
 @bp.post("/chat/stream")
 async def chat_handler():
@@ -138,124 +110,31 @@ async def chat_handler():
 
     @stream_with_context
     async def response_stream():
-        all_messages = request_messages[0:-1]
-        final_user_message = request_messages[-1]["content"]
+        if (request_file):
+            doc = pymupdf.open(request_file)
+            for i in range(doc.page_count):
+                doc = pymupdf.open(request_file)
+                page = doc.load_page(i)
+                pix = page.get_pixmap()
+                original_img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                original_img.save(f"page_{i}.png")
+            user_content = [{"text": "What information is listed in this document?", "type": "text"}]
+            for i in range(doc.page_count):
+                user_content.append({"image_url": {"url": open_image_as_base64(f"page_{i}.png")}, "type": "image_url"})
 
-        # If PDF
-        if request_file and mimetypes.guess_type(request_file)[0] == "application/pdf":
-            image_names = await convert_pdf_to_images(request_file)
+            messages= [{"role": "user", "content": user_content}]
+            chat_coroutine = bp.openai_client.chat.completions.create(
+                model=bp.model_name,
+                messages=messages,
+                stream=True, 
+                temperature=request_json.get("temperature", 0.5),
+            )
 
-            # TEST ON ONLY FIRST PAGE FOR DEBUGGING
-            curr_image = await open_image_as_base64(image_names[0])
-
-            try:
-                await preprocess_image(curr_image)
-
-                user_content = [
-                    {"text": final_user_message, "type": "text"},
-                    {"image_url": {"url": curr_image, "detail": "auto"}, "type": "image_url"}
-                ]
-                messages = all_messages + [{"role": "user", "content": user_content}]
-                
-                chat_coroutine = bp.openai_client.chat.completions.create(
-                    model=bp.model_name,
-                    messages=messages,
-                    stream=True,
-                    temperature=request_json.get("temperature", 0.5),
-                )
-
-                async for event in await chat_coroutine:
-                    event_dict = event.model_dump()
-                    if event_dict["choices"]:
-                        delta = event_dict["choices"][0]["delta"]
-                        if "content" in delta:
-                            yield json.dumps({'delta': {'content': delta['content']}}) + "\n"
-
-            except Exception as e:
-                yield json.dumps({'error': str(e)}) + "\n"
-            
-            # comment out for DEBUGGING
-            '''
-            for i, image_name in enumerate(image_names):
-                try:
-                    await preprocess_image(image_name)
-                    image_base64 = await open_image_as_base64(image_name)
-
-                    user_content = [
-                        {"text": final_user_message, "type": "text"},
-                        {"image_url": {"url": image_base64, "detail": "auto"}, "type": "image_url"}
-                    ]
-
-                    messages = all_messages + [{"role": "user", "content": user_content}]
-                    
-                    yield f"data: {json.dumps({'content': f'--- Page {i+1} ---'})}\n\n"
-
-                    chat_coroutine = bp.openai_client.chat.completions.create(
-                        model=bp.model_name,
-                        messages=messages,
-                        stream=True,
-                        temperature=request_json.get("temperature", 0.5),
-                    )
-
-                    async for event in await chat_coroutine:
-                        event_dict = event.model_dump()
-                        if event_dict["choices"]:
-                            delta = event_dict["choices"][0]["delta"]
-                            if "content" in delta:
-                                yield json.dumps({'delta': {'content': delta['content']}}) + "\n"
-
-                except Exception as e:
-                    yield json.dumps({'error': str(e)}) + "\n"
-            '''
-
-        # If single image
-        elif request_file and mimetypes.guess_type(request_file)[0].startswith("image/"):
-            try:
-                await preprocess_image(request_file)
-
-                user_content = [
-                    {"text": final_user_message, "type": "text"},
-                    {"image_url": {"url": request_file, "detail": "auto"}, "type": "image_url"}
-                ]
-                messages = all_messages + [{"role": "user", "content": user_content}]
-                
-                chat_coroutine = bp.openai_client.chat.completions.create(
-                    model=bp.model_name,
-                    messages=messages,
-                    stream=True,
-                    temperature=request_json.get("temperature", 0.5),
-                )
-
-                async for event in await chat_coroutine:
-                    event_dict = event.model_dump()
-                    if event_dict["choices"]:
-                        delta = event_dict["choices"][0]["delta"]
-                        if "content" in delta:
-                            yield json.dumps({'delta': {'content': delta['content']}}) + "\n"
-
-            except Exception as e:
-                yield json.dumps({'error': str(e)}) + "\n"
-
-        # No file (text only)
-        else:
-            try:
-                messages = all_messages + [request_messages[-1]]
-
-                chat_coroutine = bp.openai_client.chat.completions.create(
-                    model=bp.model_name,
-                    messages=messages,
-                    stream=True,
-                    temperature=request_json.get("temperature", 0.5),
-                )
-
-                async for event in await chat_coroutine:
-                    event_dict = event.model_dump()
-                    if event_dict["choices"]:
-                        delta = event_dict["choices"][0]["delta"]
-                        if "content" in delta:
-                            yield json.dumps({'delta': {'content': delta['content']}}) + "\n"
-
-            except Exception as e:
-                yield json.dumps({'error': str(e)}) + "\n"
+            async for event in await chat_coroutine:
+                event_dict = event.model_dump()
+                if event_dict["choices"]:
+                    delta = event_dict["choices"][0]["delta"]
+                    if "content" in delta:
+                        yield json.dumps({'delta': {'content': delta['content']}}) + "\n"
 
     return Response(response_stream(), content_type="application/json")

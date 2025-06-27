@@ -15,8 +15,8 @@ def create_app():
 
     app = Quart(__name__)
 
-    from . import chat  # noqa
+    from . import chat_multistream  # noqa
 
-    app.register_blueprint(chat.bp)
+    app.register_blueprint(chat_multistream.bp)
 
     return app
