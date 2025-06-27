@@ -1,5 +1,6 @@
-# This is the original chat.py file from the source GitHub
-# Only passes one image to the AI Model
+# This is a new chat.py file that will hopefully take in large PDFs
+# chunk them into smaller PDFs then convert them to images, which are then iteratively called to the AI model
+# and then the answers are all concatenated together and returned to front-end                                                                                                                                                                                                                                                                                        
 
 import json
 import os
