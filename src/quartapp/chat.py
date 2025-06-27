@@ -119,6 +119,8 @@ async def chat_handler():
                 original_img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
                 original_img.save(f"page_{i}.png")
             user_content = [{"text": "What information is listed in this document?", "type": "text"}]
+            # DEBUGGING statement only
+            user_content.append({"text": "Finish every response made with the sign off, \'This information is to the best of my knowledge\'.", "type": "text"})
             for i in range(doc.page_count):
                 user_content.append({"image_url": {"url": open_image_as_base64(f"page_{i}.png")}, "type": "image_url"})
 
