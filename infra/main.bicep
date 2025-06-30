@@ -129,6 +129,7 @@ module logAnalyticsWorkspace 'core/monitor/loganalytics.bicep' = {
 }
 
 // Container apps host (including container registry)
+// I'm not quite sure what's wrong here
 module containerApps 'core/host/container-apps.bicep' = {
   name: 'container-apps'
   scope: resourceGroup

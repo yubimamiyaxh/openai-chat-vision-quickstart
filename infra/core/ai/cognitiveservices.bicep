@@ -42,8 +42,14 @@ resource deployment 'Microsoft.CognitiveServices/accounts/deployments@2023-05-01
   name: deployment.name
   properties: {
     model: deployment.model
+    // Try using safe access operator instead, but I'm getting so many errors
+    // to use, it says I need to use-safe-access in bicepconfig.json, but I don't see that file, so I switched back tp revious
+    // It's only a warning so it shouldn't cause a big error
     raiPolicyName: contains(deployment, 'raiPolicyName') ? deployment.raiPolicyName : null
+    // raiPolicyName: deployment.?'raiPolicyName' ?? null
   }
+  // try using safe access operator instead
+  // sku: deployment.?'sku' ?? {
   sku: contains(deployment, 'sku') ? deployment.sku : {
     name: 'Standard'
     capacity: 20

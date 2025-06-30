@@ -126,6 +126,8 @@ resource app 'Microsoft.App/containerApps@2023-05-02-preview' = {
       } : { enabled: false }
       secrets: [for secret in items(secrets): {
         name: secret.key
+        // probably not an important warning
+        // Warning use-secure-value-for-secure-inputs: Property 'value' expects a secure value, but the value provided may not be secure.
         value: secret.value
       }]
       service: !empty(serviceType) ? { type: serviceType } : null

@@ -23,6 +23,32 @@ module containerAppsEnvironment 'container-apps-environment.bicep' = {
   }
 }
 
+// change the containerRegistry module to a conditional module: the deployment names are DIFFERENT which may cause issues
+// When a custom container registry RG is provided
+module containerRegistryCustomRg 'container-registry.bicep' = if (!empty(containerRegistryResourceGroupName)) {
+  name: '${name}-container-registry-custom'
+  scope: resourceGroup(containerRegistryResourceGroupName)
+  params: {
+    name: containerRegistryName
+    location: location
+    adminUserEnabled: containerRegistryAdminUserEnabled
+    tags: tags
+  }
+}
+
+// When using the current resource group
+module containerRegistryDefaultRg 'container-registry.bicep' = if (empty(containerRegistryResourceGroupName)) {
+  name: '${name}-container-registry-default'
+  scope: resourceGroup()
+  params: {
+    name: containerRegistryName
+    location: location
+    adminUserEnabled: containerRegistryAdminUserEnabled
+    tags: tags
+  }
+}
+
+/*
 module containerRegistry 'container-registry.bicep' = {
   name: '${name}-container-registry'
   scope: !empty(containerRegistryResourceGroupName) ? resourceGroup(containerRegistryResourceGroupName) : resourceGroup()
@@ -33,6 +59,7 @@ module containerRegistry 'container-registry.bicep' = {
     tags: tags
   }
 }
+*/
 
 output defaultDomain string = containerAppsEnvironment.outputs.defaultDomain
 output environmentName string = containerAppsEnvironment.outputs.name
