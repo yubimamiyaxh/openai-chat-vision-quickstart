@@ -140,7 +140,7 @@ async def summarize_answers(partials, message):
     if partials_connected:
         user_content = []
         user_content.append({"text": partials_connected, "type": "text"})
-        user_content.append({"text": message "type": "text"})
+        user_content.append({"text": message, "type": "text"})
         all_messages.append({"role": "user", "content": user_content})
 
     # send to model
