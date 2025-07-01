@@ -53,25 +53,30 @@ param openAILocation string
 // These parameters can be customized via azd env variables referenced in main.parameters.json:
 param openAiResourceName string = ''
 param openAiResourceGroupName string = ''
-param openAiApiVersion string = ''
+param openAiApiVersion string = '2023-05-01'
 param disableKeyBasedAuth bool = true
 // These parameters can be customized, but are set to default values in main.parameters.json:
 param openAiSkuName string
 param openAiModelName string
 param openAiModelVersion string
-param openAiDeploymentName string
+param openAiDeploymentName string = 'openai'
 param openAiDeploymentCapacity int
 param openAiDeploymentSkuName string
 
+// YUBI: set the flag to FALSE so I can use existing deployment
 @description('Flag to decide whether to create Azure OpenAI instance or not')
-param createAzureOpenAi bool = true
+// param createAzureOpenAi bool = true
+param createAzureOpenAi bool = false
 
+// YUBI: currently no key for authentication
 @description('Azure OpenAI key to use for authentication. If not provided, managed identity will be used (and is preferred)')
 @secure()
 param openAiKey string = ''
 
+// YUBI: set OpenAI endpoint to chat-env-30-rg
 @description('Azure OpenAI endpoint to use. If provided, no Azure OpenAI instance will be created.')
-param openAiEndpoint string = ''
+// param openAiEndpoint string = ''
+param openAiEndpoint string = 'https://o5ypyuolnl6s6-cog.openai.azure.com/'
 
 param acaExists bool = false
 
