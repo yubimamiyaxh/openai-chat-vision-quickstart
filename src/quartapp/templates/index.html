@@ -329,11 +329,33 @@
                     body: formData
                 });
 
+                const contentType = response.headers.get("content-type");
+
+                // YUBI: add extra debugging statements to identify error
+                // goal is to read HTML error as raw text instead of JSON
                 if (!response.ok) {
-                    messageDiv.innerHTML = "Error in response: " + response.status;
+                    const errorText = await response.text();
+                    messageDiv.innerHTML = `
+                        <strong>Error ${response.status}</strong><br>
+                        <pre>${errorText}</pre>
+                    `;
+                    return;
                 }
 
-                const result = await response.json();
+                let result;
+                if (contentType && contentType.includes("application/json")) {
+                    result = await response.json();
+                } else {
+                    const rawText = await response.text();
+                    messageDiv.innerHTML = `
+                        <strong>Unexpected non-JSON response:</strong><br>
+                        <pre>${rawText}</pre>
+                    `;
+                    return;
+                }
+                // YUBI: continues on as normal
+
+                // const result = await response.json();
                 const answer = ((result.answer) ||( "No answer received."));
 
                 messageDiv.innerHTML = converter.makeHtml(answer);
