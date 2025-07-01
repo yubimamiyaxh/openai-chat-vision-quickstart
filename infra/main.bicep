@@ -73,10 +73,10 @@ param createAzureOpenAi bool = false
 @secure()
 param openAiKey string = ''
 
-// YUBI: set OpenAI endpoint to chat-env-30-rg
+// YUBI: set OpenAI endpoint to rec-ex-app-rg
 @description('Azure OpenAI endpoint to use. If provided, no Azure OpenAI instance will be created.')
 // param openAiEndpoint string = ''
-param openAiEndpoint string = 'https://o5ypyuolnl6s6-cog.openai.azure.com/'
+param openAiEndpoint string = 'https://2wccj467aelpw-cog.openai.azure.com/'
 
 param acaExists bool = false
 

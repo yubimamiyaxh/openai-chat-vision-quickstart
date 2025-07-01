@@ -7,7 +7,7 @@ param containerAppsEnvironmentName string
 param containerRegistryName string
 // YUBI: hard-code the resource group name here
 // EDIT: change the group name to the appropriate resource depending on what is being used to deploy the web app
-param containerRegistryResourceGroupName string = 'chat-env-30-rg'
+param containerRegistryResourceGroupName string = 'rec-ex-app-rg'
 param containerRegistryAdminUserEnabled bool = false
 param logAnalyticsWorkspaceName string
 param applicationInsightsName string = ''
