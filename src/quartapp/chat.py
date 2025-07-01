@@ -114,7 +114,7 @@ async def call_model_on_image(image_base64, user_message):
         all_messages.append({"role": "user", "content": user_content})
 
     # send to model
-    chat_coroutine = bp.openai_client.chat.completions.create(
+    chat_coroutine = await bp.openai_client.chat.completions.create(
         # Azure Open AI takes the deployment name as the model name
         model=bp.model_name,
         messages=all_messages,
@@ -146,7 +146,7 @@ async def summarize_answers(partials, message):
         all_messages.append({"role": "user", "content": user_content})
 
     # send to model
-    chat_coroutine = bp.openai_client.chat.completions.create(
+    chat_coroutine = await bp.openai_client.chat.completions.create(
         # Azure Open AI takes the deployment name as the model name
         model=bp.model_name,
         messages=all_messages,
