@@ -3,7 +3,7 @@
     "contentVersion": "1.0.0.0",
     "parameters": {
       "name": {
-        "value": "${AZURE_ENV_NAME}"
+        "value": "rec-ex-app"
       },
       "location": {
         "value": "${AZURE_LOCATION}"
@@ -33,7 +33,7 @@
         "value": "${AZURE_OPENAI_RESOURCE}"
       },
       "openAiResourceGroupName": {
-        "value": "${AZURE_OPENAI_RESOURCE_GROUP}"
+         "value": "rec-ex-app-rg"
       },
       "openAiResourceGroupLocation": {
         "value": "${AZURE_OPENAI_RESOURCE_GROUP_LOCATION}"
@@ -51,7 +51,7 @@
         "value": "${AZURE_OPENAI_KEY_FOR_CHATVISION}"
       },
       "openAiEndpoint": {
-        "value": "${AZURE_OPENAI_ENDPOINT}"
+        "value": "https://2wccj467aelpw-cog.openai.azure.com/"
       },
       "createRoleForUser": {
         "value": "${CREATE_ROLE_FOR_USER=true}"

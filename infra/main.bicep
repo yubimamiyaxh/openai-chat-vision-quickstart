@@ -3,7 +3,9 @@ targetScope = 'subscription'
 @minLength(1)
 @maxLength(64)
 @description('Name which is used to generate a short unique hash for each resource')
-param name string
+// YUBI: hard code name to be the prefix of the resource group
+// EDIT: change this name when the resource group changes
+param name string = 'rec-ex-app'
 
 @minLength(1)
 @description('Primary location for all resources')
@@ -52,7 +54,9 @@ param openAILocation string
 
 // These parameters can be customized via azd env variables referenced in main.parameters.json:
 param openAiResourceName string = ''
-param openAiResourceGroupName string = ''
+// YUBI: hard-coded resource group name
+// EDIT: change when the resource group changes
+param openAiResourceGroupName string = 'rec-ex-app-rg'
 param openAiApiVersion string = '2023-05-01'
 param disableKeyBasedAuth bool = true
 // These parameters can be customized, but are set to default values in main.parameters.json:
@@ -80,6 +84,7 @@ param openAiEndpoint string = 'https://2wccj467aelpw-cog.openai.azure.com/'
 
 param acaExists bool = false
 
+// change resourceToken so that it points to correct resource group
 var resourceToken = toLower(uniqueString(subscription().id, name, location))
 var tags = { 'azd-env-name': name }
 
