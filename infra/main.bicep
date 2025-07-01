@@ -9,7 +9,7 @@ param name string = 'rec-ex-app'
 
 @minLength(1)
 @description('Primary location for all resources')
-param location string
+param location string = 'eastus'
 
 @description('Id of the user or app to assign application roles')
 param principalId string = ''
@@ -50,7 +50,7 @@ param createRoleForUser bool = true
     type: 'location'
   }
 })
-param openAILocation string
+param openAILocation string = 'eastus'
 
 // These parameters can be customized via azd env variables referenced in main.parameters.json:
 param openAiResourceName string = ''

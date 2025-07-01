@@ -6,13 +6,13 @@
         "value": "rec-ex-app"
       },
       "location": {
-        "value": "${AZURE_LOCATION}"
+        "value": "eastus"
       },
       "principalId": {
         "value": "${AZURE_PRINCIPAL_ID}"
       },
       "openAILocation": {
-        "value": "${AZURE_OPENAI_LOCATION}"
+        "value": "eastus"
       },
       "openAiModelName": {
         "value": "${AZURE_OPENAI_MODEL=gpt-4o}"
