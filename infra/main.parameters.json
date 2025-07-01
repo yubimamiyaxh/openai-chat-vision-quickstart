@@ -24,7 +24,7 @@
         "value": "${AZURE_OPENAI_DEPLOYMENT=gpt-4o}"
       },
       "openAiDeploymentCapacity": {
-        "value": "${AZURE_OPENAI_DEPLOYMENT_CAPACITY=30}"
+        "value": "${AZURE_OPENAI_DEPLOYMENT_CAPACITY=20}"
       },
       "openAiDeploymentSkuName": {
         "value": "${AZURE_OPENAI_DEPLOYMENT_SKU_NAME=GlobalStandard}"
@@ -45,7 +45,7 @@
         "value": "${AZURE_OPENAI_API_VERSION}"
       },
       "createAzureOpenAi": {
-        "value": "${CREATE_AZURE_OPENAI=true}"
+        "value": "${CREATE_AZURE_OPENAI=false}"
       },
       "openAiKey": {
         "value": "${AZURE_OPENAI_KEY_FOR_CHATVISION}"
