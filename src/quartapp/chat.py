@@ -175,7 +175,8 @@ async def process_pdf():
     user_message = (await request.form).get('message', '')
 
     try:
-        pdf_data = await uploaded_file.read()
+        # Don't need to wait for this function bc it isn't asynchronous 
+        pdf_data = uploaded_file.read()
         doc = fitz.open(stream=pdf_data, filetype="pdf")
     except Exception as e:
         return jsonify({"error": f"Failed to open PDF: {str(e)}"}), 500
