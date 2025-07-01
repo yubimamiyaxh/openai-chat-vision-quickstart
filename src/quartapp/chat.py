@@ -167,31 +167,44 @@ async def summarize_answers(partials, message):
 @bp.route('/process_pdf', methods=['POST'])
 async def process_pdf():
     uploaded_file = (await request.files)['file']
+    # should I use get?
+    # uploaded_file = (await request.files).get('file')
+    if not uploaded_file:
+        return jsonify({"error": "Missing file"}), 400
+
     user_message = (await request.form).get('message', '')
 
-    pdf_data = await uploaded_file.read()
-    doc = fitz.open(stream=pdf_data, filetype="pdf")
+    try:
+        pdf_data = await uploaded_file.read()
+        doc = fitz.open(stream=pdf_data, filetype="pdf")
+    except Exception as e:
+        return jsonify({"error": f"Failed to open PDF: {str(e)}"}), 500
+
 
     partial_answers = []
 
-    for i in range(len(doc)):  # One page per iteration
-        subdoc = fitz.open()
-        subdoc.insert_pdf(doc, from_page=i, to_page=i)
+    for i in range(len(doc)):
+        try:
+            subdoc = fitz.open()
+            subdoc.insert_pdf(doc, from_page=i, to_page=i)
+            page = subdoc[0]
+            pil_image = await convert_pdf_page_to_image(page)
+            img_base64 = await image_to_base64(pil_image)
+            result = await call_model_on_image(img_base64, user_message)
+            partial_answers.append(result)
+        except Exception as e:
+            return jsonify({"error": f"Failed on page {i}: {str(e)}"}), 500
 
-        # Convert that single-page doc to image
-        page = subdoc[0]
-        pil_image = await convert_pdf_page_to_image(page)
-        img_base64 = await image_to_base64(pil_image)
-
-        # Call AI model
-        result = await call_model_on_image(img_base64, user_message)
-        partial_answers.append(result)
 
     # YUBI: this should ask model to group all information together
     # YUBI: make sure that all ' characters are formatted correctly
     final_prompt="Prompt: This is a comma separated list of key-value pairs containing relevant information on one or more medical patients. Every key is a patient\'s full name and the associated value is one of the following: their full legal name, date of birth, sex, living address, email address, phone number, primary insurance name, primary insurance type, primary insurance Member ID number, or primary insurance Group ID number. Create a table where there is one row per patient and the columns are each patient\'s full legal name, date of birth, sex, living address, email address, phone number, primary insurance name, primary insurance type, primary insurance Member ID number, or primary insurance Group ID number. If there is any missing information, write N/A in that table entry. Return the table as a comma separated list where each column is separated by a comma and each row is separated by a semicolon."
     # Final aggregation step
-    final_answer = await summarize_answers(partial_answers, final_prompt)
+    try:
+        final_answer = await summarize_answers(partial_answers, final_prompt)
+    except Exception as e:
+        return jsonify({"error": f"Failed during summarization: {str(e)}"}), 500
+
 
     # what is jsonify?
     return jsonify({"answer": final_answer})
