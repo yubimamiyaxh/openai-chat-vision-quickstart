@@ -102,12 +102,15 @@ async def image_to_base64(img: Image.Image):
 async def call_model_on_image(image_base64, user_message):
     """Dummy placeholder — replace with actual model call logic."""
     # Example: send to model via HTTP or local function
+    # YUBI: make sure that all ' characters are formatted correctly
+    section_prompt = "The uploaded PDF is scanned medical documents of one or more medical patients. Identify the following information for each patient if it is in the documents: their full legal name, date of birth, sex, living address, email address, phone number, primary insurance name, primary insurance type, primary insurance Member ID number, and primary insurance Group ID number. The primary insurance may also be referred to as the main insurance or first insurance in these documents. The Member ID number and the Group ID number consists of any combination of uppercase letters and numerical digits. There are two possible insurance types, Medicare and Commercial, where Commercial encompassses all insurances that are not Medicare. In the returned information, the phone number should be returned as 10 digits with no dashes, parentheses, or spaces. In the returned information, the sex should be represented as either F for female or M for male. In the returned information, all of the commas should be removed from the living address. If there are multiple phone numbers listed for the patient, the returned information should provide their cell phone number. In the returned information, the date of birth should be written in MM/DD/YYYY format where the month, day, and year are represented numerically. For every piece of returned information, return it in a key-value pair separated by a colon where the key is the patient\'s full legal name and the value is the relevant returned information. All of the key-value pairs should be returned as a comma separated list."
     
     # This sends all messages, so API request may exceed token limits
     all_messages = [{"role": "system", "content": "You are a helpful assistant."}]
     if image_base64:
         user_content = []
         user_content.append({"text": user_message, "type": "text"})
+        user_content.append({"text": section_prompt, "type": "text"})
         user_content.append({"image_url": {"url": f"data:image/png;base64,{image_base64}", "detail": "auto"}, "type": "image_url"})
         all_messages.append({"role": "user", "content": user_content})
 
@@ -162,7 +165,6 @@ async def summarize_answers(partials, message):
 
     return response_text
 
-# app is not defined
 @bp.route('/process_pdf', methods=['POST'])
 async def process_pdf():
     uploaded_file = (await request.files)['file']
@@ -186,8 +188,9 @@ async def process_pdf():
         result = await call_model_on_image(img_base64, user_message)
         partial_answers.append(result)
 
-    # YUBI; this should ask model to group all information together
-    final_prompt = "Enter final prompt here"
+    # YUBI: this should ask model to group all information together
+    # YUBI: make sure that all ' characters are formatted correctly
+    final_prompt="Prompt: This is a comma separated list of key-value pairs containing relevant information on one or more medical patients. Every key is a patient\'s full name and the associated value is one of the following: their full legal name, date of birth, sex, living address, email address, phone number, primary insurance name, primary insurance type, primary insurance Member ID number, or primary insurance Group ID number. Create a table where there is one row per patient and the columns are each patient\'s full legal name, date of birth, sex, living address, email address, phone number, primary insurance name, primary insurance type, primary insurance Member ID number, or primary insurance Group ID number. If there is any missing information, write N/A in that table entry. Return the table as a comma separated list where each column is separated by a comma and each row is separated by a semicolon."
     # Final aggregation step
     final_answer = await summarize_answers(partial_answers, final_prompt)
 
