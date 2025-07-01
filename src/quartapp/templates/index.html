@@ -170,6 +170,7 @@
         });
 
         // helper function to convert PDF to base64 images
+        /*
         async function convertPDFtoBase64Images(file) {
             const pdfjsLib = window["pdfjs-dist/build/pdf"];
             pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
@@ -200,8 +201,10 @@
 
             return base64Images;
         }
+        */
 
         // helper function to merge multiple images into one lage image
+        /*
         async function mergeBase64Images(base64ImagesArray) {
             const images = await Promise.all(
                 base64ImagesArray.map(src => {
@@ -234,6 +237,7 @@
             // Return merged Base64 image
             return canvas.toDataURL('image/png');
         }
+        */
 
 
         form.addEventListener("submit", async function(e) {
@@ -320,7 +324,7 @@
                 formData.append("file", file);
                 formData.append("message", message);
 
-                const response = await fetch("/chat/process_pdf", {
+                const response = await fetch("/process_pdf", {
                     method: "POST",
                     body: formData
                 });
