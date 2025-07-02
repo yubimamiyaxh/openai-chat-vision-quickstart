@@ -21,7 +21,7 @@
         "value": "${AZURE_OPENAI_MODEL_VERSION=2024-05-13}"
       },
       "openAiDeploymentName": {
-        "value": "2wccj467aelpw-cog"
+        "value": "gpt-4o"
       },
       "openAiDeploymentCapacity": {
         "value": "${AZURE_OPENAI_DEPLOYMENT_CAPACITY=20}"
@@ -42,13 +42,13 @@
         "value": "${AZURE_OPENAI_SKU_NAME=S0}"
       },
       "openAiApiVersion": {
-        "value": "${AZURE_OPENAI_API_VERSION}"
+        "value": "2025-01-01-preview"
       },
       "createAzureOpenAi": {
         "value": "${CREATE_AZURE_OPENAI=false}"
       },
       "openAiKey": {
-        "value": "${AZURE_OPENAI_KEY_FOR_CHATVISION}"
+        "value": "701d561b2623492e9b1fddc69b32000f"
       },
       "openAiEndpoint": {
         "value": "https://2wccj467aelpw-cog.openai.azure.com/"

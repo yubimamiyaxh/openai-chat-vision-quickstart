@@ -57,13 +57,14 @@ param openAiResourceName string = ''
 // YUBI: hard-coded resource group name
 // EDIT: change when the resource group changes
 param openAiResourceGroupName string = 'rec-ex-app-rg'
-param openAiApiVersion string = '2023-05-01'
+param openAiApiVersion string = '2025-01-01-preview'
+// we do not need key based authentication because it is disabled for this resource group
 param disableKeyBasedAuth bool = true
 // These parameters can be customized, but are set to default values in main.parameters.json:
 param openAiSkuName string
-param openAiModelName string
-param openAiModelVersion string
-param openAiDeploymentName string = '2wccj467aelpw-cog'
+param openAiModelName string='gpt-4o'
+param openAiModelVersion string='2024-05-13'
+param openAiDeploymentName string='gpt-4o'
 param openAiDeploymentCapacity int
 param openAiDeploymentSkuName string
 
@@ -72,10 +73,12 @@ param openAiDeploymentSkuName string
 // param createAzureOpenAi bool = true
 param createAzureOpenAi bool = false
 
-// YUBI: currently no key for authentication
+// YUBI: using key authentication
 @description('Azure OpenAI key to use for authentication. If not provided, managed identity will be used (and is preferred)')
 @secure()
-param openAiKey string = ''
+// WARNING: Secure parameters should not have hardcoded defaults (except for empty or newGuid()).bicep core lintersecure-parameter-default
+// My azure says that API Key authentication is disabled but the model has a key and says I should use it???
+param openAiKey string
 
 // YUBI: set OpenAI endpoint to rec-ex-app-rg
 @description('Azure OpenAI endpoint to use. If provided, no Azure OpenAI instance will be created.')
@@ -167,6 +170,7 @@ module aca 'aca.bicep' = {
     openAiDeploymentName: openAiDeploymentName
     openAiEndpoint: createAzureOpenAi ? openAi.outputs.endpoint : openAiEndpoint
     openAiApiVersion: openAiApiVersion
+    // do I need this key? it is empty right now
     openAiKey: openAiKey
     exists: acaExists
   }

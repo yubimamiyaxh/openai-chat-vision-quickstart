@@ -7,9 +7,9 @@ param containerAppsEnvironmentName string
 param containerRegistryName string
 param serviceName string = 'aca'
 param exists bool
-param openAiDeploymentName string
-param openAiEndpoint string
-param openAiApiVersion string
+param openAiDeploymentName string = 'gpt-4o'
+param openAiEndpoint string = 'https://2wccj467aelpw-cog.openai.azure.com/'
+param openAiApiVersion string = '2025-01-01-preview'
 @secure()
 param openAiKey string = ''
 
@@ -25,6 +25,7 @@ var env = [
   }
   {
     name: 'OPENAI_MODEL'
+    // YUBI: how sure are we that the value for OPENAI_MODEL is the openAIDeploymentName?
     value: openAiDeploymentName
   }
   {
@@ -46,6 +47,7 @@ var env = [
   }
 ]
 
+// YUBI: I'm a little confused about these keys
 var envWithSecret = !empty(openAiKey) ? union(env, [
   {
     name: 'AZURE_OPENAI_KEY_FOR_CHATVISION'
