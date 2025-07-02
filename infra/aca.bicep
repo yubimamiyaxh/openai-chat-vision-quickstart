@@ -11,6 +11,7 @@ param openAiDeploymentName string = 'gpt-4o'
 param openAiEndpoint string = 'https://2wccj467aelpw-cog.openai.azure.com/'
 param openAiApiVersion string = '2025-01-01-preview'
 @secure()
+// this should stay empty
 param openAiKey string = ''
 
 resource acaIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {

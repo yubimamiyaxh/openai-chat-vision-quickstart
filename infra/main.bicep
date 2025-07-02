@@ -76,9 +76,8 @@ param createAzureOpenAi bool = false
 // YUBI: using key authentication
 @description('Azure OpenAI key to use for authentication. If not provided, managed identity will be used (and is preferred)')
 @secure()
-// WARNING: Secure parameters should not have hardcoded defaults (except for empty or newGuid()).bicep core lintersecure-parameter-default
-// My azure says that API Key authentication is disabled but the model has a key and says I should use it???
-param openAiKey string
+// we want this to be empty
+param openAiKey string = ''
 
 // YUBI: set OpenAI endpoint to rec-ex-app-rg
 @description('Azure OpenAI endpoint to use. If provided, no Azure OpenAI instance will be created.')
