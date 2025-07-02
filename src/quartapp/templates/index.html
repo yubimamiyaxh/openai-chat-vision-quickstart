@@ -324,8 +324,7 @@
                 formData.append("file", file);
                 formData.append("message", message);
 
-                // YUBI: change call to make sure it matches the chat prefix established in blueprint in chat.py
-                const response = await fetch("/chat/process_pdf", {
+                const response = await fetch("/process_pdf", {
                     method: "POST",
                     body: formData
                 });

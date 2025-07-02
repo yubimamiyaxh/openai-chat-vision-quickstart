@@ -194,7 +194,8 @@ async def process_pdf():
             result = await call_model_on_image(img_base64, user_message)
             partial_answers.append(result)
         except Exception as e:
-            return jsonify({"error": f"Failed on page {i}: {str(e)}"}), 500
+            # YUBI: added this error message but I'm not sure if it will cause issues
+            return jsonify({"error": f"Failed on page {i} using a model name of {bp.model_name} and azure OpenAI endpoint of {os.environ["AZURE_OPENAI_ENDPOINT"]}: {str(e)}"}), 500
 
 
     # YUBI: this should ask model to group all information together
