@@ -116,24 +116,27 @@ async def call_model_on_image(image_base64, user_message):
         user_content.append({"image_url": {"url": f"data:image/png;base64,{image_base64}", "detail": "auto"}, "type": "image_url"})
         all_messages.append({"role": "user", "content": user_content})
 
-    # send to model
-    chat_coroutine = await bp.openai_client.chat.completions.create(
-        # Azure Open AI takes the deployment name as the model name
-        model=bp.model_name,
-        messages=all_messages,
-        stream=True,
-        temperature=0.5,
-    )
+    try:
+        # send to model
+        chat_coroutine = await bp.openai_client.chat.completions.create(
+            # Azure Open AI takes the deployment name as the model name
+            model=bp.model_name,
+            messages=all_messages,
+            stream=True,
+            temperature=0.5,
+        )
 
-    # save answers
-    response_text = ""
-    async for chunk in chat_coroutine:
-        if chunk and chunk.choices:
-            delta = chunk.choices[0].delta
-            if delta and hasattr(delta, "content") and delta.content:
-                response_text += delta.content
+        # save answers
+        response_text = ""
+        async for chunk in chat_coroutine:
+            if chunk and chunk.choices:
+                delta = chunk.choices[0].delta
+                if delta and hasattr(delta, "content") and delta.content:
+                    response_text += delta.content
 
-    return response_text
+        return response_text
+    except Exception as e:
+        return (f"Failed to call OpenAI with model name of {bp.model_name}, openai client of {bp.openai_client} and exception of: {e}")
 
 async def summarize_answers(partials, message):
     """Aggregate partial answers into a single string."""
@@ -188,16 +191,28 @@ async def process_pdf():
     partial_answers = []
 
     for i in range(len(doc)):
+        # change the try statements to isolate where the issue is
+
+        subdoc = fitz.open()
+        subdoc.insert_pdf(doc, from_page=i, to_page=i)
+        page = subdoc[0]
+
         try:
-            subdoc = fitz.open()
-            subdoc.insert_pdf(doc, from_page=i, to_page=i)
-            page = subdoc[0]
             pil_image = await convert_pdf_page_to_image(page)
-            img_base64 = await image_to_base64(pil_image)
-            result = await call_model_on_image(img_base64, user_message)
-            partial_answers.append(result)
         except Exception as e:
-            return jsonify({"error": f"Failed on page {i}: {str(e)}"}), 500
+            return jsonify({"error": f"Failed on page {i} to convert page to image: {str(e)}"}), 500
+        
+        try:
+            img_base64 = await image_to_base64(pil_image)
+        except Exception as e:
+            return jsonify({"error": f"Failed on page {i} to convert image to base64: {str(e)}"}), 500
+        
+        try:
+            result = await call_model_on_image(img_base64, user_message)
+        except Exception as e:
+            return jsonify({"error": f"Failed on page {i} to call OpenAI with model name of {bp.model_name}, openai client of {bp.openai_client}, and Azure OpenAI Endpoint of {os.environ["AZURE_OPENAI_ENDPOINT"]}: {str(e)}"}), 500
+        
+        partial_answers.append(result)
 
 
     # YUBI: this should ask model to group all information together
