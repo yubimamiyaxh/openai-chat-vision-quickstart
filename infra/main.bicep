@@ -63,7 +63,7 @@ param disableKeyBasedAuth bool = true
 param openAiSkuName string
 param openAiModelName string
 param openAiModelVersion string
-param openAiDeploymentName string = 'openai'
+param openAiDeploymentName string = '2wccj467aelpw-cog'
 param openAiDeploymentCapacity int
 param openAiDeploymentSkuName string
 
