@@ -31,4 +31,7 @@ USER app
 
 EXPOSE 50505
 
-ENTRYPOINT ["tini", "gunicorn", "quartapp:create_app()"]
+# ENTRYPOINT ["tini", "gunicorn", "quartapp:create_app()"]
+#  YUBI: recommended to break down the above line into two to use gunicorn.conf.py
+ENTRYPOINT ["tini", "--"]
+CMD ["gunicorn", "-c", "gunicorn.conf.py", "app:create_app"]
