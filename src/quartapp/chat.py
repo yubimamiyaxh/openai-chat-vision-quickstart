@@ -169,6 +169,38 @@ async def summarize_answers(partials, message):
 
     return response_text
 
+async def format_response(response_text):
+    """Format final response of chatbot model so that it can be displayed as a table."""
+    # call model with final message prompt
+    all_messages = [{"role": "system", "content": "You are a helpful assistant."}]
+
+    # EDIT: fill out command here
+    command = "This is a list of patients and their information which will be displayed as a table. The list lists out the values of every column of the first row from left to right, then the values of every column of the second row from left to right, and so on. The first row is the titles of all of the columns: the patient\'s full legal name, date of birth, sex, living address, email address, phone number, primary insurance name, primary insurance type, primary insurance Member ID number, primary insurance Group ID number, secondary insurance name, secondary insurance type, secondary insurance Member ID number, secondary insurance Group ID number, CPT code, and ICD code. The following rows contain information about the patients with each patient having one row. Clean the list with the following two rules. First, every row of the table should be separated by a semicolon only. Second, every entry in each row of the table should be separated by a comma only. Clean this list and return the cleaned list that ensures that the values are separated correctly by commas and semicolons."
+
+    user_content = []
+    user_content.append({"text": response_text, "type": "text"})
+    user_content.append({"text": command, "type": "text"})
+    all_messages.append({"role": "user", "content": user_content})
+
+    # send to model
+    chat_coroutine = await bp.openai_client.chat.completions.create(
+        # Azure Open AI takes the deployment name as the model name
+        model=bp.model_name,
+        messages=all_messages,
+        stream=True,
+        temperature=0.5,
+    )
+
+    # save answers
+    final_response = ""
+    async for chunk in chat_coroutine:
+        if chunk and chunk.choices:
+            delta = chunk.choices[0].delta
+            if delta and hasattr(delta, "content") and delta.content:
+                response_text += delta.content
+
+    return final_response
+
 @bp.route('/process_pdf', methods=['POST'])
 async def process_pdf():
     uploaded_file = (await request.files)['file']
@@ -212,7 +244,8 @@ async def process_pdf():
         final_answer = await summarize_answers(partial_answers, final_prompt)
     except Exception as e:
         return jsonify({"error": f"Failed during summarization: {str(e)}"}), 500
+    
+    formatted_answer = await format_response(final_answer)
 
-
-    # what is jsonify?
-    return jsonify({"answer": final_answer})
+    # return jsonify({"answer": formatted_answer})
+    return jsonify({formatted_answer})
