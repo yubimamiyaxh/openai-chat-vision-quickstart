@@ -247,5 +247,5 @@ async def process_pdf():
     
     formatted_answer = await format_response(final_answer)
 
-    # return jsonify({"answer": formatted_answer})
-    return jsonify({formatted_answer})
+    return jsonify({"answer": formatted_answer})
+    # return jsonify({formatted_answer})
