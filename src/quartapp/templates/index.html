@@ -50,6 +50,9 @@
                         </div>
                         <!-- YUBI: is this the correct way to insert a table-container into my HTML? -->
                         <div class="toast-body message-table"></div>
+                        <!-- Button to download table as a csv -->
+                        <div class="toast-body message-download"></div>
+
                     </div>
                 </div>
             </template>
@@ -213,6 +216,8 @@
 
             const parent = assistantElement.closest(".toast");
             const tableContainer = parent.querySelector(".message-table");
+            const downloadContainer = parent.querySelector(".message-download");
+
             if (tableContainer) {
                 tableContainer.innerHTML = ""; // clear previous
                 tableContainer.appendChild(table);
@@ -224,6 +229,31 @@
             scrollWrapper.style.overflowX = "auto";
             scrollWrapper.appendChild(table);
             tableContainer.appendChild(scrollWrapper);
+
+            if (downloadContainer) {
+                const downloadBtn = document.createElement("button");
+                downloadBtn.className = "btn btn-outline-primary btn-sm mt-2";
+                downloadBtn.textContent = "Download as CSV";
+                downloadBtn.addEventListener("click", () => downloadCSV(csv));
+                downloadContainer.innerHTML = "";
+                downloadContainer.appendChild(downloadBtn);
+            }
+            
+        }
+
+        // function to download table as csv
+        function downloadCSV(csvContent, filename = "extracted_billing_information.csv") {
+            const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = filename;
+            a.style.display = "none";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
         }
 
 
