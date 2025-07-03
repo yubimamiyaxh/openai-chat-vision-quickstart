@@ -48,6 +48,8 @@
                         <div class="toast-body message-content">
                             <em class="typing-indicator">Generating...</em>
                         </div>
+                        <!-- YUBI: is this the correct way to insert a table-container into my HTML? -->
+                        <div class="toast-body message-table"></div>
                     </div>
                 </div>
             </template>
@@ -103,7 +105,6 @@
         const assistantTemplate = document.querySelector('#message-template-assistant');
         const converter = new showdown.Converter();
         const messages = [];
-        const base_message = "The uploaded PDF is scanned medical documents of a patient. Provide the following information about the patient in a comma separated list: their full legal name, date of birth, sex, living address, email address, phone number, primary insurance name, primary insurance type, primary insurance Member ID number, and primary insurance Group ID number. The primary insurance may also be referred to as the main insurance or first insurance in these documents. The Member ID number and the Group ID number consists of any combination of uppercase letters and numerical digits. There are two possible insurance types, Medicare and Commercial, where Commercial encompassses all insurances that are not Medicare. In the returned list, the phone number should be returned as 10 digits with no dashes, parentheses, or spaces. In the returned list, the sex should be represented as either F for female or M for male. In the returned list, all of the commas should be removed from the living address. If there are multiple phone numbers listed for the patient, the returned list should provide their cell phone number. In the returned list, the date of birth should be written in MM/DD/YYYY format where the month, day, and year are represented numerically. If there are any results that can not be found, write the answer as \'N/A\' in the returned list."
 
         const toBase64 = file => new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -168,6 +169,37 @@
         speechInputButton.addEventListener("speech-input-error", (event) => {
             alert(event.detail.error);
         });
+
+        // function to convert answer into csv table and adds it to the table-container div in the HTML
+        function csvToTable(csv, assistantElement) {
+            const rows = csv.trim().split(";");
+            const table = document.createElement("table");
+            table.className = "table table-bordered mt-2";
+
+            rows.forEach((row, rowIndex) => {
+                const tr = document.createElement("tr");
+                row.split(",").forEach(cell => {
+                    const td = document.createElement(rowIndex === 0 ? "th" : "td");
+                    td.textContent = cell.trim();
+                    tr.appendChild(td);
+                });
+                table.appendChild(tr);
+            });
+
+            const parent = assistantElement.closest(".toast");
+            const tableContainer = parent.querySelector(".message-table");
+            if (tableContainer) {
+                tableContainer.innerHTML = ""; // clear previous
+                tableContainer.appendChild(table);
+            }
+
+            // optional scroll wrapper for table if it overflows
+            const scrollWrapper = document.createElement("div");
+            scrollWrapper.className = "table-responsive";
+            scrollWrapper.style.overflowX = "auto";
+            scrollWrapper.appendChild(table);
+            tableContainer.appendChild(scrollWrapper);
+        }
 
 
         form.addEventListener("submit", async function(e) {
@@ -273,6 +305,12 @@
 
                 messageDiv.innerHTML = converter.makeHtml(answer);
                 messageDiv.scrollIntoView();
+
+                // Try rendering table if the answer is a CSV
+                // YUBI: idk if i need this if statement
+                if (answer.includes(",") && answer.includes(";")) {
+                    csvToTable(answer, messageDiv);
+                }
 
                 messages.push({
                     "role": "assistant",
