@@ -120,11 +120,15 @@
         const imagePreview = document.getElementById("image-preview");
         const pdfPreview = document.getElementById("pdf-preview");
 
+        // make sure that there are no memory leaks
+        let previousPdfUrl = null;
+
         fileInput.addEventListener("change", async function() {
             const file = fileInput.files[0];
 
             if (!file) {
                 imagePreview.style.display = "none";
+                pdfPreview.style.display = "none";
                 // Display error message if no file is selected
             }
 
@@ -133,6 +137,7 @@
 
             // Check if file is a PDF or image
             // this only works if the mimetypes library is imported in the backend
+            /*
             if (fileType === "application/pdf") {
                 // preview PDF on the web page
                 const reader = new FileReader();
@@ -147,6 +152,26 @@
             imagePreview.style.display = "none";
             reader.readAsDataURL(file);  // Converts PDF to base64 data URL
 
+            } 
+            */
+
+           // try a different way to display PDF that allows for larger PDFs to be displayed
+            if (fileType === "application/pdf") {
+
+                if (previousPdfUrl) {
+                    URL.revokeObjectURL(previousPdfUrl); // cleanup old URL
+                }
+
+                // Create and assign new object URL
+                const objectUrl = URL.createObjectURL(file);
+                previousPdfUrl = objectUrl;
+
+                // display PDF using iframe
+                const iframe = document.getElementById("pdf-preview");
+                iframe.src = objectUrl;
+                iframe.style.display = "block";
+
+                imagePreview.style.display = "none";
             } else if (fileType.startsWith("image/")) {
                // For image files, convert to base64 and display
                 const fileData = await toBase64(file);
@@ -244,7 +269,8 @@
                     */
 
                     // this function should work with PDF as well as images
-                    fileDataTemp = file ? await toBase64(file) : null;
+                    // YUBI: recent EDIT to take away conversion bc it is not necessary since we are using formData
+                    // fileDataTemp = file ? await toBase64(file) : null;
 
                     imagePreview.style.display = "none";
                 }
