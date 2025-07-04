@@ -197,7 +197,7 @@ async def format_response(response_text):
         if chunk and chunk.choices:
             delta = chunk.choices[0].delta
             if delta and hasattr(delta, "content") and delta.content:
-                response_text += delta.content
+                final_response += delta.content
 
     return final_response
 
