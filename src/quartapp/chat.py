@@ -151,7 +151,7 @@ async def summarize_answers(partials):
     partials_connected = "\n".join(partials)
     # call model with final message prompt
     all_messages = [{"role": "system", "content": "You are a helpful assistant."}]
-    patient_schema_file = bp.patient_template
+    patient_schema_file = bp.patient_schema
 
     final_prompt="This is a comma separated list of key-value pairs containing relevant information on one or more medical patients. Every key is a patient\'s full name and the associated value is one of the following: their full legal name, date of birth, sex, living address, email address, phone number, primary insurance name, primary insurance type, primary insurance Member ID number, primary insurance Group ID number, secondary insurance name, secondary insurance type, secondary insurance Member ID number, secondary insurance Group ID number, CPT code, or ICD code. There may be keys with similar full names that can be reasonably assumed to belong to the same patient. For example, some full names may include a middle initial, middle name, or maiden name. If there are similar keys, replace all of the sets of keys that are similar to each other with the same, longest full name that is known in each set. Aggregate this data to create an array of JSON data instances, where each patient is one JSON data instance, and return the full array of patients. There can be more than one CPT code for a patient. There can be more than one ICD code for a patient. If there are any missing values, they should be returned as \"null\" in the JSON data instance. The JSON schema is attached to this message."
 
