@@ -198,49 +198,6 @@
             alert(event.detail.error);
         });
 
-        // function to convert answer into csv table and adds it to the table-container div in the HTML
-        function csvToTable(csv, assistantElement) {
-            const rows = csv.trim().split(";");
-            const table = document.createElement("table");
-            table.className = "table table-bordered mt-2";
-
-            rows.forEach((row, rowIndex) => {
-                const tr = document.createElement("tr");
-                row.split(",").forEach(cell => {
-                    const td = document.createElement(rowIndex === 0 ? "th" : "td");
-                    td.textContent = cell.trim();
-                    tr.appendChild(td);
-                });
-                table.appendChild(tr);
-            });
-
-            const parent = assistantElement.closest(".toast");
-            const tableContainer = parent.querySelector(".message-table");
-            const downloadContainer = parent.querySelector(".message-download");
-
-            if (tableContainer) {
-                tableContainer.innerHTML = ""; // clear previous
-                tableContainer.appendChild(table);
-            }
-
-            // optional scroll wrapper for table if it overflows
-            const scrollWrapper = document.createElement("div");
-            scrollWrapper.className = "table-responsive";
-            scrollWrapper.style.overflowX = "auto";
-            scrollWrapper.appendChild(table);
-            tableContainer.appendChild(scrollWrapper);
-
-            if (downloadContainer) {
-                const downloadBtn = document.createElement("button");
-                downloadBtn.className = "btn btn-outline-primary btn-sm mt-2";
-                downloadBtn.textContent = "Download as CSV";
-                downloadBtn.addEventListener("click", () => downloadCSV(csv));
-                downloadContainer.innerHTML = "";
-                downloadContainer.appendChild(downloadBtn);
-            }
-            
-        }
-
         // function to download table as csv
         function downloadCSV(csvContent, filename = "extracted_billing_information.csv") {
             const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
@@ -254,6 +211,81 @@
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
+        }
+
+        // function to convert JSON response to table
+        function annotatedJSONToTable(patients, assistantElement) {
+            const table = document.createElement("table");
+            table.className = "table table-bordered mt-2";
+
+            if (!patients || patients.length === 0) return;
+
+            const headers = Object.keys(patients[0]);
+
+            const thead = document.createElement("thead");
+            const headRow = document.createElement("tr");
+            headers.forEach(header => {
+                const th = document.createElement("th");
+                th.textContent = header;
+                headRow.appendChild(th);
+            });
+            thead.appendChild(headRow);
+            table.appendChild(thead);
+
+            const tbody = document.createElement("tbody");
+            const csvRows = [headers.join(",")]; // for CSV download
+
+            patients.forEach(patient => {
+                const tr = document.createElement("tr");
+                headers.forEach(key => {
+                    const td = document.createElement("td");
+                    const entry = patient[key];
+                    td.textContent = entry?.value || "";
+
+                    if (entry?.valid === false) {
+                        td.classList.add("invalid-entry");
+                        td.title = entry.reason || "Invalid value";
+                    }
+
+                    tr.appendChild(td);
+                });
+                tbody.appendChild(tr);
+            });
+
+            table.appendChild(tbody);
+
+            const parent = assistantElement.closest(".toast");
+            let tableContainer = parent.querySelector(".message-table");
+            if (!tableContainer) {
+                tableContainer = document.createElement("div");
+                tableContainer.className = "message-table mt-2";
+                parent.appendChild(tableContainer);
+            }
+
+            if (!downloadContainer) {
+                downloadContainer = document.createElement("div");
+                downloadContainer.className = "message-download mt-2";
+                parent.appendChild(downloadContainer);
+            }
+
+            tableContainer.innerHTML = "";
+            downloadContainer.innerHTML = "";
+
+            // Scroll wrapper
+            const scrollWrapper = document.createElement("div");
+            scrollWrapper.className = "table-responsive";
+            scrollWrapper.style.overflowX = "auto";
+            scrollWrapper.appendChild(table);
+
+            tableContainer.appendChild(scrollWrapper);
+
+            // Create download button
+            const csvString = csvRows.join("\n");
+            const downloadBtn = document.createElement("button");
+            downloadBtn.className = "btn btn-outline-primary btn-sm mt-2";
+            downloadBtn.textContent = "Download as CSV";
+            downloadBtn.addEventListener("click", () => downloadCSV(csvString));
+            downloadContainer.appendChild(downloadBtn);
         }
 
 
@@ -354,19 +386,24 @@
                     `;
                     return;
                 }
-                // YUBI: continues on as normal
 
-                // const result = await response.json();
+                if (result.patients) {
+                    // If patients array is returned, show annotated table
+                    annotatedJSONToTable(result.patients, messageDiv);
+                } 
+
+                // optional fallback for CSV string-based tables
+                /*
+                else if (result.answer && typeof result.answer === "string") {
+                    // If answer is a CSV string, convert to table
+                    csvToTable(result.answer, messageDiv);
+                }
+                */
+
                 const answer = ((result.answer) ||( "No answer received."));
-
+                // YUBI: I'm not sure if I want to write answer to the messageDiv
                 messageDiv.innerHTML = converter.makeHtml(answer);
                 messageDiv.scrollIntoView();
-
-                // Try rendering table if the answer is a CSV
-                // YUBI: idk if i need this if statement
-                if (answer.includes(",") && answer.includes(";")) {
-                    csvToTable(answer, messageDiv);
-                }
 
                 messages.push({
                     "role": "assistant",

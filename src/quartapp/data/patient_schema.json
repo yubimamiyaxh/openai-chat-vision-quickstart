@@ -1,0 +1,81 @@
+{
+  "$id": "https://example.com/health-record.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Schema for representing medical information for a patient",
+  "type": "object",
+  "required": ["patientName", "dateOfBirth", "sex", "livingAddress", "email", "phone",  "primaryInsuranceName", "primaryInsuranceType", "primaryInsuranceMemberID", "primaryInsuranceGroupID", "secondaryInsuranceName", "secondaryInsuranceType", "secondaryInsuranceMemberID", "secondaryInsuranceGroupID", "CPTCodes", "ICDCodes"],
+  "properties": {
+    "patientName": {
+      "description": "Patient full legal name",
+      "type": ["string", "null"]
+    },
+    "dateOfBirth": {
+      "description": "The date of birth in MM/DD/YYYY format",
+      "type": ["string", "null"],
+      "format": "date"
+    },
+    "sex": {
+      "description": "The sex of patient represented as F or M",
+      "type": ["string", "null"]
+    },
+    "livingAddress": {
+      "description": "The living address of patient",
+      "type": ["string", "null"]
+    },
+    "email": {
+      "description": "The email address of patient",
+      "type": ["string", "null"],
+      "format": "email"
+    },
+    "phone": {
+      "description": "The phone number of patient",
+      "type": ["number", "null"]
+    },
+    "primaryInsuranceName": {
+      "description": "The name of the primary insurance of the patient",
+      "type": ["string", "null"]
+    },
+    "primaryInsuranceType": {
+      "description": "The type of the primary insurance of the patient",
+      "type": ["string", "null"]
+    },
+    "primaryInsuranceMemberID": {
+      "description": "The member ID number of the primary insurance of the patient",
+      "type": ["string", "null"]
+    },
+    "primaryInsuranceGroupID": {
+      "description": "The group ID number of the primary insurance of the patient",
+      "type": ["string", "null"]
+    },
+    "secondaryInsuranceName": {
+      "description": "The name of the secondary insurance of the patient",
+      "type": ["string", "null"]
+    },
+    "secondaryInsuranceType": {
+      "description": "The type of the secondary insurance of the patient",
+      "type": ["string", "null"]
+    },
+    "secondaryInsuranceMemberID": {
+      "description": "The member ID number of the secondary insurance of the patient",
+      "type": ["string", "null"]
+    },
+    "secondaryInsuranceGroupID": {
+      "description": "The group ID number of the secondary insurance of the patient",
+      "type": ["string", "null"]
+    },
+    "CPTCodes": {
+      "description": "The one or more CPT Codes of the patient",
+      "type": "array",
+      "items": {
+        "type": "number"
+      }
+    },
+    "ICDCodes": {
+      "description": "The one or more ICD Codes of the patient",
+      "type": "array",
+      "items": {
+        "type": "number"
+      }
+    }
+  }
+}

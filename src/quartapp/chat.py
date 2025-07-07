@@ -11,6 +11,7 @@ import fitz  # PyMuPDF
 from PIL import Image
 from io import BytesIO
 import base64
+import re
 
 
 import azure.identity.aio
@@ -82,6 +83,16 @@ async def configure_openai():
             **client_args,
         )
 
+    # load the patient schema json template from data folder
+    file_path = os.path.join(os.path.dirname(__file__), 'data', 'patient_schema.json')
+    try:
+        with open(file_path, 'r') as f:
+            bp.patient_schema = json.load(f)
+        current_app.logger.info("Loaded patient schema from %s", file_path)
+    except Exception as e:
+        current_app.logger.error("Failed to load patient schema: %s", e)
+        bp.patient_schema = {}  # Fallback or raise if critical
+
 
 @bp.after_app_serving
 async def shutdown_openai():
@@ -137,18 +148,24 @@ async def call_model_on_image(image_base64, user_message):
 
     return response_text
 
-async def summarize_answers(partials, message):
+async def summarize_answers(partials):
     """Aggregate partial answers into a single string."""
     partials_connected = "\n".join(partials)
     # call model with final message prompt
     all_messages = [{"role": "system", "content": "You are a helpful assistant."}]
+    patient_schema_file = bp.patient_template
+
+    final_prompt="This is a comma separated list of key-value pairs containing relevant information on one or more medical patients. Every key is a patient\'s full name and the associated value is one of the following: their full legal name, date of birth, sex, living address, email address, phone number, primary insurance name, primary insurance type, primary insurance Member ID number, primary insurance Group ID number, secondary insurance name, secondary insurance type, secondary insurance Member ID number, secondary insurance Group ID number, CPT code, or ICD code. There may be keys with similar full names that can be reasonably assumed to belong to the same patient. For example, some full names may include a middle initial, middle name, or maiden name. If there are similar keys, replace all of the sets of keys that are similar to each other with the same, longest full name that is known in each set. Aggregate this data to create an array of JSON data instances, where each patient is one JSON data instance, and return the full array of patients. There can be more than one CPT code for a patient. There can be more than one ICD code for a patient. If there are any missing values, they should be returned as \"null\" in the JSON data instance. The JSON schema is attached to this message."
 
     # IDK if this check is necessary
     if partials_connected:
         user_content = []
         user_content.append({"text": partials_connected, "type": "text"})
-        user_content.append({"text": message, "type": "text"})
+        user_content.append({"text": final_prompt, "type": "text"})
+        # add schema file to the user content
+        user_content.append({"type": "text", "text": patient_schema_file})
         all_messages.append({"role": "user", "content": user_content})
+        
 
     # send to model
     chat_coroutine = await bp.openai_client.chat.completions.create(
@@ -169,37 +186,45 @@ async def summarize_answers(partials, message):
 
     return response_text
 
-async def format_response(response_text):
-    """Format final response of chatbot model so that it can be displayed as a table."""
-    # call model with final message prompt
-    all_messages = [{"role": "system", "content": "You are a helpful assistant."}]
+# helper function to validate patient fields returned from summarize_answers
+def validate_patient_fields(patients):
 
-    # EDIT: fill out command here
-    command = "This is a list of patients and their information which will be displayed as a table. The list lists out the values of every column of the first row from left to right, then the values of every column of the second row from left to right, and so on. The first row is the titles of all of the columns: the patient\'s full legal name, date of birth, sex, living address, email address, phone number, primary insurance name, primary insurance type, primary insurance Member ID number, primary insurance Group ID number, secondary insurance name, secondary insurance type, secondary insurance Member ID number, secondary insurance Group ID number, CPT code, and ICD code. The following rows contain information about the patients with each patient having one row. Clean the list with the following two rules. First, every row of the table should be separated by a semicolon only. Second, every entry in each row of the table should be separated by a comma only. Clean this list and return the cleaned list that ensures that the values are separated correctly by commas and semicolons."
+    annotated = []
+    for patient in patients:
+        entry = {}
+        for key, value in patient.items():
+            if value == "null":
+                valid = False
+                reason = "Couldn't find the value in the document"
+            elif key == "dateOfBirth":
+                valid = bool(re.match(r"\d{2}/\d{2}/\d{4}", value))
+                # YUBI: I can change these reasons to something more vague after I test
+                reason = None if valid else "Invalid format, must be MM/DD/YYYY"
+            elif key == "sex":
+                valid = value in {"M", "F"}
+                reason = None if valid else "Must be 'M' or 'F'"
+            elif key == "phoneNumber":
+                valid = bool(re.match(r"^\d{10}$", value))
+                reason = None if valid else "Must be 10 digits with no dashes, parentheses, or spaces"
+            elif key in {"primaryInsuranceType", "secondaryInsuranceType"}:
+                valid = value in {"Medicare", "Commercial"}
+                reason = None if valid else "Must be 'Medicare' or 'Commercial'"
+            elif key in {"primaryInsuranceMemberId", "primaryInsuranceGroupId",
+                         "secondaryInsuranceMemberId", "secondaryInsuranceGroupId"}:
+                valid = bool(re.match(r"^[A-Z0-9]+$", value))
+                reason = None if valid else "Must be alphanumeric with no spaces"
+            elif key in {"cptCode", "icdCode"}:
+                valid = bool(re.match(r"^[A-Z0-9]{5,7}$", value))
+                reason = None if valid else "Must be alphanumeric with 5 to 7 characters"
+            else:
+                valid = True
+                reason = None
+            entry[key] = {"value": value, "valid": valid}
+            if not valid:
+                entry[key]["reason"] = reason
+        annotated.append(entry)
+    return annotated
 
-    user_content = []
-    user_content.append({"text": response_text, "type": "text"})
-    user_content.append({"text": command, "type": "text"})
-    all_messages.append({"role": "user", "content": user_content})
-
-    # send to model
-    chat_coroutine = await bp.openai_client.chat.completions.create(
-        # Azure Open AI takes the deployment name as the model name
-        model=bp.model_name,
-        messages=all_messages,
-        stream=True,
-        temperature=0.5,
-    )
-
-    # save answers
-    final_response = ""
-    async for chunk in chat_coroutine:
-        if chunk and chunk.choices:
-            delta = chunk.choices[0].delta
-            if delta and hasattr(delta, "content") and delta.content:
-                final_response += delta.content
-
-    return final_response
 
 @bp.route('/process_pdf', methods=['POST'])
 async def process_pdf():
@@ -233,19 +258,20 @@ async def process_pdf():
         except Exception as e:
             # YUBI: added this error message but I'm not sure if it will cause issues
             return jsonify({"error": f"Failed on page {i} using a model name of {bp.model_name}: {str(e)}"}), 500
-
-
-    # YUBI: this should ask model to group all information together
-    # YUBI: make sure that all ' characters are formatted correctly
-    final_prompt="Prompt: This is a comma separated list of key-value pairs containing relevant information on one or more medical patients. Every key is a patient\'s full name and the associated value is one of the following: their full legal name, date of birth, sex, living address, email address, phone number, primary insurance name, primary insurance type, primary insurance Member ID number, primary insurance Group ID number, secondary insurance name, secondary insurance type, secondary insurance Member ID number, secondary insurance Group ID number, CPT code, and ICD code. There may be keys with similar full names that can be reasonably assumed to belong to the same patient. For example, some full names may include a middle initial, middle name, or maiden name. If there are similar keys, replace all of the sets of keys that are similar to each other with the same, longest full name that is known in each set. Create a table where there is one row per patient, and the columns are each patient\'s full legal name, date of birth, sex, living address, email address, phone number, primary insurance name, primary insurance type, primary insurance Member ID number, primary insurance Group ID number, secondary insurance name, secondary insurance type, secondary insurance Member ID number, secondary insurance Group ID number, CPT code, and ICD code. The first row of the table should be the names of the columns only. If there is more than one CPT code for a patient, combine them into one string where each code is separated by the \'+\' symbol and enter this string as the CPT code entry for that patient in the table. If there is more than one ICD code for a patient, combine them into one string where each code is separated by the \'+\' symbol and enter this string as the ICD code entry for that patient in the table. If there is any missing information, write \'N/A\' in that table entry. Return the table as a comma separated list where each column is separated by a comma only, and each row is separated by a semicolon only. It is very important that each patient has their own row in the table and that every row of the table is separated by a semicolon in the returned list."
     
     # Final aggregation step
     try:
-        final_answer = await summarize_answers(partial_answers, final_prompt)
+        final_answer = await summarize_answers(partial_answers)
     except Exception as e:
         return jsonify({"error": f"Failed during summarization: {str(e)}"}), 500
     
-    formatted_answer = await format_response(final_answer)
+    try:
+        patients_json = json.loads(final_answer)
+    except json.JSONDecodeError as e:
+        return jsonify({"error": f"Failed to parse model output as JSON: {str(e)}", "raw_output": final_answer}), 500
 
-    return jsonify({"answer": formatted_answer})
-    # return jsonify({formatted_answer})
+    return jsonify({"patients": validate_patient_fields(patients_json)})
+
+    
+    # formatted_answer = await format_response(final_answer)
+    # return jsonify({"answer": formatted_answer})
