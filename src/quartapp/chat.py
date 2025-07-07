@@ -161,7 +161,7 @@ async def summarize_answers(partials):
         user_content.append({"text": partials_connected, "type": "text"})
         user_content.append({"text": final_prompt, "type": "text"})
         # add schema file to the user content
-        user_content.append({"type": "text", "text": patient_schema_file})
+        user_content.append({"type": "text", "text": json.dumps(patient_schema_file)})
         all_messages.append({"role": "user", "content": user_content})
         
 
