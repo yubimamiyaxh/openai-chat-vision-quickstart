@@ -40,6 +40,14 @@ body {
   border: 1px solid #c4cad0;
 }
 
+/* YUBI: add styling for invalid entries in table */
+.invalid-entry {
+    background-color: #dc3545 !important; /* Bootstrap red */
+    color: white !important;
+    font-weight: bold;
+}
+
+
 /* Speech input/output buttons */
 
 #chat-form speech-input-button button {
