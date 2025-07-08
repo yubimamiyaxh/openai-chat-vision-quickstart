@@ -1,4 +1,5 @@
 <!-- This html validates JSON outputs from AI model -->
+ <!-- This html formats the PDF to be smaller and the text boxes larger -->
 
 <!doctype html>
 <html lang="en" class="h-100">
@@ -59,43 +60,45 @@
         </div>
         <div id="chat-area" class="px-4 py-2 rounded-top-5 text-dark d-flex flex-column justify-content-center">
             <form id="chat-form">
-                <div class="d-flex">
-                    <div class="flex-grow-1">
+                <!-- Horizontally split row: Left = text/form, Right = PDF/image -->
+                <div class="d-flex" style="height: 300px;">
+                    <!-- Left: Chat inputs -->
+                    <div class="flex-grow-1 me-3 d-flex flex-column justify-content-between">
 
-
+                    <div>
                         <label for="file" class="form-label" style="color:white">Upload file:</label>
                         <div class="input-group mb-3">
                             <i class="bi bi-file-earmark-text input-group-text" aria-hidden="true"></i>
-                            <!-- Enable uploads of PDF, jpg and png files -->
-                            <input id="file" name="file" class="form-control form-control-sm" type="file" accept=".png, .jpg, .pdf" aria-label="Upload File"></input>
+                            <input id="file" name="file" class="form-control form-control-sm" type="file" accept=".png, .jpg, .pdf" aria-label="Upload File">
                         </div>
 
-
                         <label for="message" class="form-label bi" style="color:white">Ask question about file:</label>
-                        <div class="input-group">
-
-                            <!-- I eventually want to get rid of speech input button -->
+                        <div class="input-group mb-3">
                             <speech-input-button></speech-input-button>
-                            <input id="message" name="message" class="form-control form-control-sm" type="text" rows="1" placeholder="<Additional Instructions>" aria-label="Additional Instructions"></input>
+                            <input id="message" name="message" class="form-control form-control-sm" type="text" placeholder="<Additional Instructions>" aria-label="Additional Instructions">
                             <button type="submit" class="btn btn-primary">
-                                Submit
-                                <i class="bi bi-send-fill" aria-hidden="true"></i>
+                            Submit
+                            <i class="bi bi-send-fill" aria-hidden="true"></i>
                             </button>
                         </div>
 
-                        <!-- follow-up section -->
                         <label for="followup-message" class="form-label bi" style="color:white">Follow-up question about results:</label>
                         <div class="input-group">
-                            <input id="followup-message" name="followup-message" class="form-control form-control-sm" type="text" rows="1" placeholder="<Follow-up Question about Results>" aria-label="Follow-up Question about Results">
+                            <input id="followup-message" name="followup-message" class="form-control form-control-sm" type="text" placeholder="<Follow-up Question about Results>" aria-label="Follow-up Question about Results">
                             <button type="button" id="followup-submit" class="btn btn-secondary">
-                                Ask Follow-up
-                                <i class="bi bi-arrow-return-right" aria-hidden="true"></i>
+                            Ask Follow-up
+                            <i class="bi bi-arrow-return-right" aria-hidden="true"></i>
                             </button>
                         </div>
                     </div>
+        
+                </div>
+
+                <!-- Right: PDF or Image preview -->
+                <div style="flex: 0 0 33%; display: flex; flex-direction: column; align-items: center;">
                     <img id="image-preview" class="img-fluid mt-2" style="display: none;" />
-                    <!-- Add display for potential PDF -->
-                    <iframe id="pdf-preview" width="100%" height="500px" style="display: none;"></iframe>
+                    <iframe id="pdf-preview" width="100%" height="100%" style="display: none; border: none;"></iframe>
+                </div>
                 </div>
             </form>
         </div>
@@ -151,25 +154,6 @@
             const fileType = file.type;
             const fileName = file.name;
 
-            // Check if file is a PDF or image
-            // this only works if the mimetypes library is imported in the backend
-            /*
-            if (fileType === "application/pdf") {
-                // preview PDF on the web page
-                const reader = new FileReader();
-
-                reader.onload = function (e) {
-                    const pdfDataUrl = e.target.result;
-                    const iframe = document.getElementById('pdf-preview');
-                    iframe.src = pdfDataUrl;
-                    iframe.style.display = 'block';
-                };
-            
-            imagePreview.style.display = "none";
-            reader.readAsDataURL(file);  // Converts PDF to base64 data URL
-
-            } 
-            */
 
            // try a different way to display PDF that allows for larger PDFs to be displayed
             if (fileType === "application/pdf") {
@@ -190,6 +174,7 @@
                 imagePreview.style.display = "none";
             } else if (fileType.startsWith("image/")) {
                // For image files, convert to base64 and display
+               // I don't need image code
                 const fileData = await toBase64(file);
                 imagePreview.src = fileData;
                 imagePreview.style.display = "block";
@@ -254,12 +239,12 @@
             const tbody = document.createElement("tbody");
             patients.forEach(patient => {
                 const tr = document.createElement("tr");
-                const csvRow = [];  // This was also missing
+                const csvRow = [];
 
                 propertyOrder.forEach(key => {
                     const td = document.createElement("td");
                     const entry = patient[key];
-                    const value = entry?.value ?? "";  // ✅ FIXED LINE
+                    const value = entry?.value ?? "";
 
                     td.textContent = value;
 
@@ -271,11 +256,24 @@
                     tr.appendChild(td);
 
                     // Escape value for CSV and push to row
-                    const escaped = String(value).replace(/"/g, '""');
-                    csvRow.push(`"${escaped}"`);
+                    // const escaped = String(value).replace(/"/g, '""');
+                    // csvRow.push(`"${escaped}"`);
+
+                    // replacement above 2 lines with safe check
+                    // YUBI: I'm not super confident about this part
+                    let safeValue = "";
+                    if (typeof value === "string") {
+                        safeValue = value.replace(/"/g, '""');
+                    } else if (Array.isArray(value)) {
+                        safeValue = value.map(v => String(v)).join(", ").replace(/"/g, '""');
+                    } else if (value != null) {
+                        safeValue = String(value).replace(/"/g, '""');
+                    }
+                    csvRow.push(`"${safeValue}"`);
+
                 });
 
-                csvRows.push(csvRow.join(","));  // ✅ Also make sure csvRow is defined!
+                csvRows.push(csvRow.join(","));
                 tbody.appendChild(tr);
             });
 
