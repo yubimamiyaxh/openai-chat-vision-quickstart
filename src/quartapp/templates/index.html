@@ -220,11 +220,12 @@
 
             if (!patients || patients.length === 0) return;
 
-            const headers = Object.keys(patients[0]);
+            const propertyOrder = ["Patient Name", "Date of Birth", "Sex", "Address", "Email", "Phone",  "Primary Insurance Name", "Primary Insurance Type", "Primary Insurance Member ID", "Primary Insurance Group ID", "Secondary Insurance Name", "Secondary Insurance Type", "Secondary Insurance Member ID", "Secondary Insurance Group ID", "CPT Codes", "ICD Codes"];
 
+            // Create table header using propertyOrder
             const thead = document.createElement("thead");
             const headRow = document.createElement("tr");
-            headers.forEach(header => {
+            propertyOrder.forEach(header => {
                 const th = document.createElement("th");
                 th.textContent = header;
                 headRow.appendChild(th);
@@ -232,15 +233,15 @@
             thead.appendChild(headRow);
             table.appendChild(thead);
 
+            // Build CSV rows
+            const csvRows = [];
+            csvRows.push(propertyOrder.join(",")); // header row
+
+            // Create table body using propertyOrder
             const tbody = document.createElement("tbody");
-            const csvRows = [headers.join(",")]; // for CSV download
-
-            // list the columns in specific order
-            const propertyOrder = ["Patient Name", "Date of Birth", "Sex", "Address", "Email", "Phone",  "Primary Insurance Name", "Primary Insurance Type", "Primary Insurance Member ID", "Primary Insurance Group ID", "Secondary Insurance Name", "Secondary Insurance Type", "Secondary Insurance Member ID", "Secondary Insurance Group ID", "CPT Codes", "ICD Codes"];
-
-            propertyOrder.forEach(key => {
+            patients.forEach(patient => {
                 const tr = document.createElement("tr");
-                headers.forEach(key => {
+                propertyOrder.forEach(key => {
                     const td = document.createElement("td");
                     const entry = patient[key];
                     td.textContent = entry?.value || "";
@@ -251,7 +252,14 @@
                     }
 
                     tr.appendChild(td);
+
+                    // Escape value for CSV and push to row
+                    const escaped = String(value).replace(/"/g, '""');
+                    csvRow.push(`"${escaped}"`);
+
                 });
+
+                 csvRows.push(csvRow.join(","));
                 tbody.appendChild(tr);
             });
 
