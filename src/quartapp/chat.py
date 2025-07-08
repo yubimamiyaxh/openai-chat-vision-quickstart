@@ -275,6 +275,7 @@ async def process_pdf():
 
     # Retrieve the optional user message sent along with the PDF
     user_message = (await request.form).get('message', '')
+    processing_mode = (await request.form).get('processing_mode', 'billing')
 
     # Attempt to read and open the PDF using PyMuPDF
     try:
@@ -332,6 +333,8 @@ async def process_pdf():
 
             try:
                 # Call the AI model with a timeout to avoid hanging
+                # EDIT HERE: enable parameters to be passed to this function
+                # YUBI: the message to call_model_on_image should differ based on processing mode
                 result = await asyncio.wait_for(call_model_on_image(img_base64, user_message), timeout=90)
                 return result
             except asyncio.TimeoutError:
@@ -355,6 +358,8 @@ async def process_pdf():
         return jsonify({"error": f"Batch processing failed: {str(e)}"}), 500
 
     # After all batches processed, aggregate partial answers into a final answer
+    # EDIT HERE: enable parameters to be passed to this function
+    # YUBI: the message to call_model_on_image should differ based on processing mode
     try:
         final_answer = await summarize_answers(partial_answers)
     except Exception as e:
@@ -368,6 +373,8 @@ async def process_pdf():
         return jsonify({"error": f"Failed to parse model output as JSON: {str(e)}", "raw_output": final_answer}), 500
 
     # Validate the parsed patient data and annotate invalid fields
+    # EDIT HERE
+    # YUBI: this only applies to billing processing mode, so enable selection of this chunk of code
     try:
         annotated_patients = validate_patient_fields(patients_json)
     except Exception as e:

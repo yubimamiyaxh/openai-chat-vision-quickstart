@@ -65,6 +65,21 @@
                     <!-- Left: Chat inputs -->
                     <div class="flex-grow-1 me-3 d-flex flex-column justify-content-between">
 
+                    <!-- Create radio button that has billing and payment processing options -->
+                    <div id="mode-toggle" class="mb-3" style="position: relative; z-index: 10;">
+                        <label class="form-label" style="color: white;">Choose processing mode:</label>
+  
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="processing-mode" id="mode-billing" value="billing" checked>
+                            <label class="form-check-label" for="mode-billing">Billing</label>
+                        </div>
+
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="processing-mode" id="mode-payment" value="payment">
+                            <label class="form-check-label" for="mode-payment">Payment</label>
+                        </div>
+                    </div>
+
                     <div>
                         <label for="file" class="form-label" style="color:white">Upload file:</label>
                         <div class="input-group mb-3">
@@ -390,6 +405,12 @@
                 const formData = new FormData();
                 formData.append("file", file);
                 formData.append("message", message);
+
+                // Get processing mode from radio buttons
+                const selectedMode = document.querySelector('input[name="processing-mode"]:checked')?.value;
+                if (selectedMode) {
+                    formData.append("processing_mode", selectedMode);
+                }
 
                 const response = await fetch("/process_pdf", {
                     method: "POST",
