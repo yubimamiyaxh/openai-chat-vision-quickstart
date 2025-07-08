@@ -195,8 +195,8 @@ def validate_patient_fields(patients):
         entry = {}
         for key, value in patient.items():
             if isinstance(value, str) and value in ["null", "None", ""]:
-                valid = False
-                reason = "Couldn't find the value in the document"
+                # do not highlight empty cells because they are already empty
+                valid = True
             elif key == "Date of Birth":
                 valid = bool(re.match(r"\d{2}/\d{2}/\d{4}", str(value)))
                 # YUBI: I can change these reasons to something more vague after I test
@@ -214,6 +214,13 @@ def validate_patient_fields(patients):
                          "Secondary Insurance Member ID", "Secondary Insurance Group ID"}:
                 valid = bool(re.match(r"^[A-Z0-9]+$", str(value)))
                 reason = None if valid else "Must be alphanumeric with no spaces"
+            else:
+                valid = True
+                reason = None
+            entry[key] = {"value": value, "valid": valid}
+            
+            # YUBI: remove checks for codes right now bc they are arrays and Shuoqi said it's not as important
+            '''
             elif key == "CPT Codes":
                 # value must be a string containing 5 numbers only
                 valid = bool(re.match(r"^\d{5}$", str(value)))
@@ -221,10 +228,8 @@ def validate_patient_fields(patients):
             elif key == "ICD Codes":
                 valid = bool(re.match(r"^[A-Z0-9]{3,7}$", str(value)))
                 reason = None if valid else "Must be alphanumeric with 3 to 7 characters"
-            else:
-                valid = True
-                reason = None
-            entry[key] = {"value": value, "valid": valid}
+            '''
+            
             if not valid:
                 entry[key]["reason"] = reason
         annotated.append(entry)
