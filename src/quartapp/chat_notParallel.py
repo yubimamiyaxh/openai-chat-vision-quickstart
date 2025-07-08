@@ -1,4 +1,4 @@
-# This is a new chat.py file that uses asyncio.gather to parallelize the processing of PDF pages.
+# This is a new chat.py file that uses JSON Schema for patient data
 
 import json
 import os
@@ -235,115 +235,120 @@ def validate_patient_fields(patients):
         annotated.append(entry)
     return annotated
 
-# Updated code to handle PDF processing in parallel
-# YUBI: double check this
+
 @bp.route('/process_pdf', methods=['POST'])
 async def process_pdf():
-    # Retrieve the uploaded PDF file from the request
     uploaded_file = (await request.files)['file']
+    # should I use get?
+    # uploaded_file = (await request.files).get('file')
     if not uploaded_file:
         return jsonify({"error": "Missing file"}), 400
 
-    # Retrieve the optional user message sent along with the PDF
     user_message = (await request.form).get('message', '')
 
-    # Attempt to read and open the PDF using PyMuPDF
     try:
+        # Don't need to wait for this function bc it isn't asynchronous 
         pdf_data = uploaded_file.read()
         doc = fitz.open(stream=pdf_data, filetype="pdf")
     except Exception as e:
-        # Return 500 error if PDF cannot be opened
         return jsonify({"error": f"Failed to open PDF: {str(e)}"}), 500
 
-    # Define the batch size (number of PDF pages processed together in one batch)
-    batch_size = 2
-    num_pages = len(doc)
 
-    # Set maximum number of concurrent batches allowed to avoid overloading downstream resources
-    MAX_CONCURRENT_BATCHES = 4
-    semaphore = asyncio.Semaphore(MAX_CONCURRENT_BATCHES)  # Controls concurrency limit
+    partial_answers = []
 
-    # Helper function to stack multiple images vertically into one tall image
+    # define helper function for batching and stacking images
     def stack_images_vertically(images):
+        """Combine a list of PIL images vertically into one."""
         widths, heights = zip(*(img.size for img in images))
         total_height = sum(heights)
         max_width = max(widths)
-        combined = Image.new('RGB', (max_width, total_height), (255, 255, 255))  # White background
+
+        combined = Image.new('RGB', (max_width, total_height), (255, 255, 255))
         y_offset = 0
         for img in images:
             combined.paste(ImageOps.expand(img, border=0, fill='white'), (0, y_offset))
             y_offset += img.height
         return combined
 
-    # Async function to process a batch of pages:
-    # - converts pages to images,
-    # - stacks images vertically if multiple,
-    # - encodes image as base64,
-    # - calls AI model with the image and user message.
-    async def process_page_batch(start_idx: int):
-        async with semaphore:  # Acquire semaphore before starting to limit concurrency
+    # Process pages in batches of 2
+    # YUBI: allow this variable to be set by the user
+    # batch_size = int(os.getenv("BATCH_SIZE", 2))  # Default is 2
+    batch_size = 2
+    num_pages = len(doc)
+    for i in range(0, num_pages, batch_size):
+        try:
             images = []
-            # Loop through pages in the batch
-            for page_idx in range(start_idx, min(start_idx + batch_size, num_pages)):
-                # Extract one page as a separate PDF document
+            for j in range(i, min(i + batch_size, num_pages)):
                 subdoc = fitz.open()
-                subdoc.insert_pdf(doc, from_page=page_idx, to_page=page_idx)
+                subdoc.insert_pdf(doc, from_page=j, to_page=j)
                 page = subdoc[0]
-                # Convert PDF page to PIL image asynchronously
                 pil_image = await convert_pdf_page_to_image(page)
                 images.append(pil_image)
 
             if not images:
-                return None  # No pages to process in this batch
+                continue
 
-            # Stack images vertically if multiple pages, else use single image
-            merged_image = images[0] if len(images) == 1 else stack_images_vertically(images)
-            # Convert merged image to base64 string for model input
+            if len(images) == 1:
+                merged_image = images[0]
+            else:
+                merged_image = stack_images_vertically(images)
+
             img_base64 = await image_to_base64(merged_image)
 
             try:
-                # Call the AI model with a timeout to avoid hanging
+                # time out the call to the model if it is taking too long
+                # YUBI: do we want to limit to 60 seconds?
                 result = await asyncio.wait_for(call_model_on_image(img_base64, user_message), timeout=90)
-                return result
             except asyncio.TimeoutError:
-                # Raise an error if processing times out for this batch
-                raise RuntimeError(f"Timeout processing pages {start_idx}-{start_idx + batch_size - 1}")
+                return jsonify({"error": f"Timeout on page {i}"}), 504
+            
+            partial_answers.append(result)
 
-    # Create async tasks for each batch of pages
-    tasks = [asyncio.create_task(process_page_batch(i)) for i in range(0, num_pages, batch_size)]
+        except Exception as e:
+            return jsonify({"error": f"Failed on pages {i}-{i+batch_size-1} using model {bp.model_name}: {str(e)}"}), 500
 
-    partial_answers = []
-    try:
-        # Run all batch tasks concurrently (limited by semaphore)
-        batch_results = await asyncio.gather(*tasks)
-        # Filter out any None results (empty batches)
-        partial_answers = [r for r in batch_results if r is not None]
-    except RuntimeError as e:
-        # Return 504 Gateway Timeout if any batch timed out
-        return jsonify({"error": str(e)}), 504
-    except Exception as e:
-        # Return 500 for any other errors during batch processing
-        return jsonify({"error": f"Batch processing failed: {str(e)}"}), 500
+    '''
+    for i in range(len(doc)):
+        try:
+            subdoc = fitz.open()
+            subdoc.insert_pdf(doc, from_page=i, to_page=i)
+            page = subdoc[0]
+            pil_image = await convert_pdf_page_to_image(page)
+            img_base64 = await image_to_base64(pil_image)
+            result = await call_model_on_image(img_base64, user_message)
 
-    # After all batches processed, aggregate partial answers into a final answer
+            try:
+                # time out the call to the model if it is taking too long
+                # YUBI: do we want to limit to 60 seconds?
+                result = await asyncio.wait_for(call_model_on_image(img_base64, user_message), timeout=90)
+            except asyncio.TimeoutError:
+                return jsonify({"error": f"Timeout on page {i}"}), 504
+
+            partial_answers.append(result)
+        except Exception as e:
+            # YUBI: added this error message but I'm not sure if it will cause issues
+            return jsonify({"error": f"Failed on page {i} using a model name of {bp.model_name}: {str(e)}"}), 500
+    '''
+    
+    # Final aggregation step
     try:
         final_answer = await summarize_answers(partial_answers)
     except Exception as e:
         return jsonify({"error": f"Failed during summarization: {str(e)}"}), 500
-
-    # Parse the final aggregated model output as JSON
+    
     try:
         patients_json = json.loads(final_answer)
     except json.JSONDecodeError as e:
-        # Return 500 error with raw output for debugging if JSON parsing fails
         return jsonify({"error": f"Failed to parse model output as JSON: {str(e)}", "raw_output": final_answer}), 500
 
-    # Validate the parsed patient data and annotate invalid fields
     try:
         annotated_patients = validate_patient_fields(patients_json)
     except Exception as e:
-        current_app.logger.error("Validation failed: %s", e)
+        print("Validation failed:", e)
         return {"error": "Validation error", "details": str(e)}, 500
 
-    # Return the validated and annotated patient data as JSON response
     return jsonify({"patients": annotated_patients})
+
+    
+    # formatted_answer = await format_response(final_answer)
+    # return jsonify({"answer": formatted_answer})
