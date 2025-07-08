@@ -436,7 +436,8 @@
                 */
 
                 // I think answer is the patients array
-                const answer = ((result.patients) ||( "No answer received."));
+                // const answer = ((result.patients) ||( "No answer received."));
+                const answer = "The patient information has been extracted successfully. You can ask follow-up questions about the results.";
                 // YUBI: I'm not sure if I want to write answer to the messageDiv
                 messageDiv.innerHTML = converter.makeHtml(answer);
                 messageDiv.scrollIntoView();
