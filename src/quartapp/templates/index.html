@@ -479,10 +479,11 @@
             const container = document.getElementById("messages");
             const div = document.createElement("div");
             div.className = "alert alert-secondary mt-2";
+            div.innerHTML = `<strong>Follow-up Answer:</strong><br>`;
 
             if (response.ok) {
                 const result = await response.json();
-                div.innerText = result.answer || "No answer provided.";
+                div.innerHTML = converter.makeHtml(result.answer || "No answer provided.");
             } else {
                 const errorText = await response.text();
                 div.innerHTML = `<strong>Error:</strong><pre>${errorText}</pre>`;
