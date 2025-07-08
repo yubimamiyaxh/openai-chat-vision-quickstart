@@ -235,7 +235,10 @@
             const tbody = document.createElement("tbody");
             const csvRows = [headers.join(",")]; // for CSV download
 
-            patients.forEach(patient => {
+            // list the columns in specific order
+            const propertyOrder = ["Patient Name", "Date of Birth", "Sex", "Address", "Email", "Phone",  "Primary Insurance Name", "Primary Insurance Type", "Primary Insurance Member ID", "Primary Insurance Group ID", "Secondary Insurance Name", "Secondary Insurance Type", "Secondary Insurance Member ID", "Secondary Insurance Group ID", "CPT Codes", "ICD Codes"];
+
+            propertyOrder.forEach(key => {
                 const tr = document.createElement("tr");
                 headers.forEach(key => {
                     const td = document.createElement("td");
