@@ -256,7 +256,7 @@ async def process_pdf():
         return jsonify({"error": f"Failed to open PDF: {str(e)}"}), 500
 
     # Define the batch size (number of PDF pages processed together in one batch)
-    batch_size = 2
+    batch_size = 3
     num_pages = len(doc)
 
     # Set maximum number of concurrent batches allowed to avoid overloading downstream resources
