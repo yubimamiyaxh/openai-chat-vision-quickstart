@@ -194,32 +194,32 @@ def validate_patient_fields(patients):
     for patient in patients:
         entry = {}
         for key, value in patient.items():
-            if value in [None, "null"]:
+            if isinstance(value, str) and value in ["null", "None", ""]:
                 valid = False
                 reason = "Couldn't find the value in the document"
             elif key == "Date of Birth":
-                valid = bool(re.match(r"\d{2}/\d{2}/\d{4}", value))
+                valid = bool(re.match(r"\d{2}/\d{2}/\d{4}", str(value)))
                 # YUBI: I can change these reasons to something more vague after I test
                 reason = None if valid else "Invalid format, must be MM/DD/YYYY"
             elif key == "Sex":
                 valid = value in {"M", "F"}
                 reason = None if valid else "Must be 'M' or 'F'"
             elif key == "Phone Number":
-                valid = bool(re.match(r"^\d{10}$", value))
+                valid = bool(re.match(r"^\d{10}$", str(value)))
                 reason = None if valid else "Must be 10 digits with no dashes, parentheses, or spaces"
             elif key in {"Primary Insurance Type", "Secondary Insurance Type"}:
                 valid = value in {"Medicare", "Commercial"}
                 reason = None if valid else "Must be 'Medicare' or 'Commercial'"
             elif key in {"Primary Insurance Member ID", "Primary Insurance Group ID",
                          "Secondary Insurance Member ID", "Secondary Insurance Group ID"}:
-                valid = bool(re.match(r"^[A-Z0-9]+$", value))
+                valid = bool(re.match(r"^[A-Z0-9]+$", str(value)))
                 reason = None if valid else "Must be alphanumeric with no spaces"
             elif key == "CPT Codes":
                 # value must be a string containing 5 numbers only
-                valid = bool(re.match(r"^\d{5}$", value))
+                valid = bool(re.match(r"^\d{5}$", str(value)))
                 reason = None if valid else "Must be numeric with 5 characters"
             elif key == "ICD Codes":
-                valid = bool(re.match(r"^[A-Z0-9]{3,7}$", value))
+                valid = bool(re.match(r"^[A-Z0-9]{3,7}$", str(value)))
                 reason = None if valid else "Must be alphanumeric with 3 to 7 characters"
             else:
                 valid = True
@@ -336,7 +336,13 @@ async def process_pdf():
     except json.JSONDecodeError as e:
         return jsonify({"error": f"Failed to parse model output as JSON: {str(e)}", "raw_output": final_answer}), 500
 
-    return jsonify({"patients": validate_patient_fields(patients_json)})
+    try:
+        annotated_patients = validate_patient_fields(patients_json)
+    except Exception as e:
+        print("Validation failed:", e)
+        return {"error": "Validation error", "details": str(e)}, 500
+
+    return jsonify({"patients": annotated_patients})
 
     
     # formatted_answer = await format_response(final_answer)
