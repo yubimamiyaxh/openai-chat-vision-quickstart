@@ -194,29 +194,33 @@ def validate_patient_fields(patients):
     for patient in patients:
         entry = {}
         for key, value in patient.items():
-            if value == "null":
+            if value in [None, "null"]:
                 valid = False
                 reason = "Couldn't find the value in the document"
-            elif key == "dateOfBirth":
+            elif key == "Date of Birth":
                 valid = bool(re.match(r"\d{2}/\d{2}/\d{4}", value))
                 # YUBI: I can change these reasons to something more vague after I test
                 reason = None if valid else "Invalid format, must be MM/DD/YYYY"
-            elif key == "sex":
+            elif key == "Sex":
                 valid = value in {"M", "F"}
                 reason = None if valid else "Must be 'M' or 'F'"
-            elif key == "phoneNumber":
+            elif key == "Phone Number":
                 valid = bool(re.match(r"^\d{10}$", value))
                 reason = None if valid else "Must be 10 digits with no dashes, parentheses, or spaces"
-            elif key in {"primaryInsuranceType", "secondaryInsuranceType"}:
+            elif key in {"Primary Insurance Type", "Secondary Insurance Type"}:
                 valid = value in {"Medicare", "Commercial"}
                 reason = None if valid else "Must be 'Medicare' or 'Commercial'"
-            elif key in {"primaryInsuranceMemberId", "primaryInsuranceGroupId",
-                         "secondaryInsuranceMemberId", "secondaryInsuranceGroupId"}:
+            elif key in {"Primary Insurance Member ID", "Primary Insurance Group ID",
+                         "Secondary Insurance Member ID", "Secondary Insurance Group ID"}:
                 valid = bool(re.match(r"^[A-Z0-9]+$", value))
                 reason = None if valid else "Must be alphanumeric with no spaces"
-            elif key in {"cptCode", "icdCode"}:
-                valid = bool(re.match(r"^[A-Z0-9]{5,7}$", value))
-                reason = None if valid else "Must be alphanumeric with 5 to 7 characters"
+            elif key == "CPT Codes":
+                # value must be a string containing 5 numbers only
+                valid = bool(re.match(r"^\d{5}$", value))
+                reason = None if valid else "Must be numeric with 5 characters"
+            elif key == "ICD Codes":
+                valid = bool(re.match(r"^[A-Z0-9]{3,7}$", value))
+                reason = None if valid else "Must be alphanumeric with 3 to 7 characters"
             else:
                 valid = True
                 reason = None
