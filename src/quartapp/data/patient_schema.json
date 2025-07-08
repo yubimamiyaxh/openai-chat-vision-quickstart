@@ -67,7 +67,7 @@
       "description": "The one or more CPT Codes of the patient",
       "type": "array",
       "items": {
-        "type": "number"
+        "type": "string"
       }
     },
     "ICD Codes": {
