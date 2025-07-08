@@ -76,10 +76,20 @@
 
                             <!-- I eventually want to get rid of speech input button -->
                             <speech-input-button></speech-input-button>
-                            <input id="message" name="message" class="form-control form-control-sm" type="text" rows="1" placeholder="<Your Message>" aria-label="Ask ChatGPT"></input>
+                            <input id="message" name="message" class="form-control form-control-sm" type="text" rows="1" placeholder="<Additional Instructions>" aria-label="Additional Instructions"></input>
                             <button type="submit" class="btn btn-primary">
                                 Submit
                                 <i class="bi bi-send-fill" aria-hidden="true"></i>
+                            </button>
+                        </div>
+
+                        <!-- follow-up section -->
+                        <label for="followup-message" class="form-label bi" style="color:white">Follow-up question about results:</label>
+                        <div class="input-group">
+                            <input id="followup-message" name="followup-message" class="form-control form-control-sm" type="text" rows="1" placeholder="<Follow-up Question about Results>" aria-label="Follow-up Question about Results">
+                            <button type="button" id="followup-submit" class="btn btn-secondary">
+                                Ask Follow-up
+                                <i class="bi bi-arrow-return-right" aria-hidden="true"></i>
                             </button>
                         </div>
                     </div>
@@ -108,6 +118,9 @@
         const assistantTemplate = document.querySelector('#message-template-assistant');
         const converter = new showdown.Converter();
         const messages = [];
+        // remember previous patients so that we can use them in follow-up questions
+        let previousPatients = null;
+
 
         const toBase64 = file => new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -404,6 +417,8 @@
                 }
 
                 if (result.patients) {
+                    // save results in global variable
+                    previousPatients = result.patients;
                     // If patients array is returned, show annotated table
                     annotatedJSONToTable(result.patients, messageDiv);
                 } 
@@ -416,7 +431,8 @@
                 }
                 */
 
-                const answer = ((result.answer) ||( "No answer received."));
+                // I think answer is the patients array
+                const answer = ((result.patients) ||( "No answer received."));
                 // YUBI: I'm not sure if I want to write answer to the messageDiv
                 messageDiv.innerHTML = converter.makeHtml(answer);
                 messageDiv.scrollIntoView();
@@ -436,6 +452,45 @@
             } catch (error) {
                 messageDiv.innerHTML = "Error: " + error;
             }
+        });
+
+        // Event listener for follow-up question submission
+        document.getElementById("followup-submit").addEventListener("click", async function() {
+            const followupMessage = document.getElementById("followup-message").value;
+            if (!followupMessage) return;
+
+            // check that previousPatients is not null
+            if (!previousPatients) {
+                alert("Please process a file first before asking follow-up questions.");
+                return;
+            }
+
+            // access same file but with different message
+            const formData = new FormData();
+            formData.append("message", followupMessage);
+            // add result.patients from previous results to formData
+            formData.append("previous_patients", JSON.stringify(previousPatients));
+
+            const response = await fetch("/followup", {
+                method: "POST",
+                body: formData
+            });
+
+            const container = document.getElementById("messages");
+            const div = document.createElement("div");
+            div.className = "alert alert-secondary mt-2";
+
+            if (response.ok) {
+                const result = await response.json();
+                div.innerText = result.answer || "No answer provided.";
+            } else {
+                const errorText = await response.text();
+                div.innerHTML = `<strong>Error:</strong><pre>${errorText}</pre>`;
+            }
+
+            container.appendChild(div);
+            div.scrollIntoView();
+            document.getElementById("followup-message").value = "";
         });
     </script>
 </body>

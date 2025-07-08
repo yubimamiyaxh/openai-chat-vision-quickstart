@@ -149,6 +149,35 @@ async def call_model_on_image(image_base64, user_message):
 
     return response_text
 
+async def call_model_followup(prompt):
+    # Example: send to model via HTTP or local function
+    # YUBI: make sure that all ' characters are formatted correctly
+    
+    # This sends all messages, so API request may exceed token limits
+    all_messages = [{"role": "system", "content": "You are a helpful assistant."}]
+    user_content = []
+    user_content.append({"text": prompt, "type": "text"})
+    all_messages.append({"role": "user", "content": user_content})
+
+    # send to model
+    chat_coroutine = await bp.openai_client.chat.completions.create(
+        # Azure Open AI takes the deployment name as the model name
+        model=bp.model_name,
+        messages=all_messages,
+        stream=True,
+        temperature=0.5,
+    )
+
+    # save answers
+    response_text = ""
+    async for chunk in chat_coroutine:
+        if chunk and chunk.choices:
+            delta = chunk.choices[0].delta
+            if delta and hasattr(delta, "content") and delta.content:
+                response_text += delta.content
+
+    return response_text
+
 async def summarize_answers(partials):
     """Aggregate partial answers into a single string."""
     partials_connected = "\n".join(partials)
@@ -256,8 +285,8 @@ async def process_pdf():
         return jsonify({"error": f"Failed to open PDF: {str(e)}"}), 500
 
     # Define the batch size (number of PDF pages processed together in one batch)
-    batch_size = 3
-    num_pages = len(doc)
+    batch_size = 2
+    num_pages = len(doc)  
 
     # Set maximum number of concurrent batches allowed to avoid overloading downstream resources
     MAX_CONCURRENT_BATCHES = 4
@@ -347,3 +376,37 @@ async def process_pdf():
 
     # Return the validated and annotated patient data as JSON response
     return jsonify({"patients": annotated_patients})
+
+# New route for follow-up
+@bp.route("/followup", methods=["POST"])
+async def followup():
+    try:
+        form = await request.form
+        message = form["message"]
+        previous_patients_raw = form.get("previous_patients")
+
+        # Parse the JSON string into an object
+        try:
+            previous_patients_json = json.loads(previous_patients_raw)
+        except json.JSONDecodeError:
+            return jsonify({"error": "Invalid JSON format for previous_patients"}), 400
+
+        # Pretty-print the JSON for readability
+        previous_patients_pretty = json.dumps(previous_patients_json, indent=2)
+
+        # Build model message with context
+        followup_prompt = (
+            "The user has previously asked you to extract information from a scanned medical document. "
+            "They now have a follow-up question. Below is the structured data from your previous response, "
+            "and the user's follow-up question. Use this context to answer clearly and directly.\n\n"
+            f"Previous extracted data:\n{previous_patients_pretty}\n\n"
+            f"Follow-up question:\n{message}"
+        )
+
+        # Call model
+        model_response = await call_model_followup(followup_prompt)
+
+        return jsonify({"answer": model_response})
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
