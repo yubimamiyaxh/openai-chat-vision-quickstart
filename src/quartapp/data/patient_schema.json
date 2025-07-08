@@ -74,7 +74,7 @@
       "description": "The one or more ICD Codes of the patient",
       "type": "array",
       "items": {
-        "type": "number"
+        "type": "string"
       }
     }
   }

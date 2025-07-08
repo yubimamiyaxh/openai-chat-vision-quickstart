@@ -7,9 +7,11 @@ import os
 from quart import Blueprint, request, jsonify
 import fitz  # PyMuPDF
 from PIL import Image
+from PIL import ImageOps
 from io import BytesIO
 import base64
 import re
+import asyncio
 
 
 import azure.identity.aio
@@ -103,7 +105,8 @@ async def index():
 
 async def convert_pdf_page_to_image(page):
     """Convert a PyMuPDF page to a PIL image."""
-    pix = page.get_pixmap(dpi=200)
+    # lower resolution of displayed PDF for performance
+    pix = page.get_pixmap(dpi=100)
     img_bytes = pix.tobytes("png")
     return Image.open(BytesIO(img_bytes))
 
@@ -244,6 +247,58 @@ async def process_pdf():
 
     partial_answers = []
 
+    # define helper function for batching and stacking images
+    def stack_images_vertically(images):
+        """Combine a list of PIL images vertically into one."""
+        widths, heights = zip(*(img.size for img in images))
+        total_height = sum(heights)
+        max_width = max(widths)
+
+        combined = Image.new('RGB', (max_width, total_height), (255, 255, 255))
+        y_offset = 0
+        for img in images:
+            combined.paste(ImageOps.expand(img, border=0, fill='white'), (0, y_offset))
+            y_offset += img.height
+        return combined
+
+    # Process pages in batches of 2
+    # YUBI: allow this variable to be set by the user
+    # batch_size = int(os.getenv("BATCH_SIZE", 2))  # Default is 2
+    batch_size = 2
+    num_pages = len(doc)
+    for i in range(0, num_pages, batch_size):
+        try:
+            images = []
+            for j in range(i, min(i + batch_size, num_pages)):
+                subdoc = fitz.open()
+                subdoc.insert_pdf(doc, from_page=j, to_page=j)
+                page = subdoc[0]
+                pil_image = await convert_pdf_page_to_image(page)
+                images.append(pil_image)
+
+            if not images:
+                continue
+
+            if len(images) == 1:
+                merged_image = images[0]
+            else:
+                merged_image = stack_images_vertically(images)
+
+            img_base64 = await image_to_base64(merged_image)
+
+            try:
+                # time out the call to the model if it is taking too long
+                # YUBI: do we want to limit to 60 seconds?
+                result = await asyncio.wait_for(call_model_on_image(img_base64, user_message), timeout=90)
+            except asyncio.TimeoutError:
+                return jsonify({"error": f"Timeout on page {i}"}), 504
+            
+            partial_answers.append(result)
+
+        except Exception as e:
+            return jsonify({"error": f"Failed on pages {i}-{i+batch_size-1} using model {bp.model_name}: {str(e)}"}), 500
+
+    '''
     for i in range(len(doc)):
         try:
             subdoc = fitz.open()
@@ -252,10 +307,19 @@ async def process_pdf():
             pil_image = await convert_pdf_page_to_image(page)
             img_base64 = await image_to_base64(pil_image)
             result = await call_model_on_image(img_base64, user_message)
+
+            try:
+                # time out the call to the model if it is taking too long
+                # YUBI: do we want to limit to 60 seconds?
+                result = await asyncio.wait_for(call_model_on_image(img_base64, user_message), timeout=90)
+            except asyncio.TimeoutError:
+                return jsonify({"error": f"Timeout on page {i}"}), 504
+
             partial_answers.append(result)
         except Exception as e:
             # YUBI: added this error message but I'm not sure if it will cause issues
             return jsonify({"error": f"Failed on page {i} using a model name of {bp.model_name}: {str(e)}"}), 500
+    '''
     
     # Final aggregation step
     try:
