@@ -241,10 +241,14 @@
             const tbody = document.createElement("tbody");
             patients.forEach(patient => {
                 const tr = document.createElement("tr");
+                const csvRow = [];  // This was also missing
+
                 propertyOrder.forEach(key => {
                     const td = document.createElement("td");
                     const entry = patient[key];
-                    td.textContent = entry?.value || "";
+                    const value = entry?.value ?? "";  // ✅ FIXED LINE
+
+                    td.textContent = value;
 
                     if (entry?.valid === false) {
                         td.classList.add("invalid-entry");
@@ -256,12 +260,12 @@
                     // Escape value for CSV and push to row
                     const escaped = String(value).replace(/"/g, '""');
                     csvRow.push(`"${escaped}"`);
-
                 });
 
-                 csvRows.push(csvRow.join(","));
+                csvRows.push(csvRow.join(","));  // ✅ Also make sure csvRow is defined!
                 tbody.appendChild(tr);
             });
+
 
             table.appendChild(tbody);
 
