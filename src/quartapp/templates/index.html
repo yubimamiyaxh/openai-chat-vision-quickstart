@@ -95,7 +95,7 @@
                 </div>
 
                 <!-- Right: PDF or Image preview -->
-                <div style="flex: 0 0 33%; display: flex; flex-direction: column; align-items: center;">
+                <div style="flex: 0 0 50%; display: flex; flex-direction: column; align-items: center;">
                     <img id="image-preview" class="img-fluid mt-2" style="display: none;" />
                     <iframe id="pdf-preview" width="100%" height="100%" style="display: none; border: none;"></iframe>
                 </div>
@@ -262,13 +262,19 @@
                     // replacement above 2 lines with safe check
                     // YUBI: I'm not super confident about this part
                     let safeValue = "";
+
                     if (typeof value === "string") {
                         safeValue = value.replace(/"/g, '""');
                     } else if (Array.isArray(value)) {
                         safeValue = value.map(v => String(v)).join(", ").replace(/"/g, '""');
-                    } else if (value != null) {
+                    } else if (typeof value === "number" || typeof value === "boolean") {
                         safeValue = String(value).replace(/"/g, '""');
+                    } else if (value === null || value === undefined) {
+                        safeValue = "";
+                    } else {
+                        safeValue = JSON.stringify(value).replace(/"/g, '""');
                     }
+
                     csvRow.push(`"${safeValue}"`);
 
                 });
