@@ -24,7 +24,7 @@
         "value": "gpt-4o"
       },
       "openAiDeploymentCapacity": {
-        "value": "${AZURE_OPENAI_DEPLOYMENT_CAPACITY=20}"
+        "value": "${AZURE_OPENAI_DEPLOYMENT_CAPACITY=50}"
       },
       "openAiDeploymentSkuName": {
         "value": "${AZURE_OPENAI_DEPLOYMENT_SKU_NAME=GlobalStandard}"
