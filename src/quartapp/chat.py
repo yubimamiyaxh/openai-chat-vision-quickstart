@@ -12,6 +12,8 @@ from io import BytesIO
 import base64
 import re
 import asyncio
+import json
+import tiktoken  # For counting tokens (if available; otherwise approximate)
 
 
 import azure.identity.aio
@@ -183,6 +185,144 @@ async def call_model_followup(prompt):
 
     return response_text
 
+# summarize answers function that batches the partial answers for batched calls to AI model
+# returns a list of JSON data instances
+# batch token limit is 10,000 tokens by default
+async def summarize_answers(partials, processing_mode, batch_token_limit=10000):
+    """Aggregate partial answers into a single list of JSON objects by batching."""
+
+    def count_tokens(text):
+        try:
+            enc = tiktoken.encoding_for_model(bp.model_name)
+            return len(enc.encode(text))
+        except Exception:
+            return len(text.split())  # Fallback: approx 1 token per word
+
+    if processing_mode == "payment":
+        schema_file = ""
+        summary_prompt = "add prompt here"
+    else:
+        # default processing mode is billing
+        schema_file = bp.patient_schema
+        summary_prompt = "This is a comma separated list of key-value pairs containing information on medical patients. Every key is a patient\'s full name and the associated value is one of the following: their full name, date of birth, sex, living address, email address, phone number, primary insurance name, primary insurance type, primary insurance Member ID number, primary insurance Group ID number, secondary insurance name, secondary insurance type, secondary insurance Member ID number, secondary insurance Group ID number, CPT code, or ICD code. There may be similar keys that can be reasonably assumed to belong to the same patient because the key is the patient\'s name. For example, some keys may include a middle initial, middle name, switched order of first and last name, or spelled with different capitalization. Group the key-value pairs together in sets of similar keys and rename every key in each set with the same, longest full name that is known in each set. Then, use the aggregated data from these groupings to create an array of JSON data instances, where each data instance represents a unique patient. The JSON schema is attached to this message. There can be more than one CPT code or ICD code for a patient. For all other properties, if there are multiple, conflicting values for the same property in a JSON data instance, select a single value that is the most probable option. If there are any missing values, they should be returned as \"null\" in the JSON data instance. Return an array of all unique patients. Format output as raw JSON only. Do not wrap the response in markdown backticks."
+
+    # Chunk partials to respect token limit per batch
+    batches = []
+    current_batch = []
+    current_tokens = 0
+
+    for part in partials:
+        tokens = count_tokens(part)
+        if current_tokens + tokens > batch_token_limit and current_batch:
+            batches.append(current_batch)
+            current_batch = [part]
+            current_tokens = tokens
+        else:
+            current_batch.append(part)
+            current_tokens += tokens
+
+    if current_batch:
+        batches.append(current_batch)
+
+    all_json_objects = []
+
+    for batch in batches:
+        partials_connected = "\n".join(batch)
+        all_messages = [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {
+                "role": "user",
+                "content": [
+                    {"text": partials_connected, "type": "text"},
+                    {"text": summary_prompt, "type": "text"},
+                    {"type": "text", "text": json.dumps(schema_file)},
+                ]
+            }
+        ]
+
+        chat_coroutine = await bp.openai_client.chat.completions.create(
+            model=bp.model_name,
+            messages=all_messages,
+            stream=True,
+            temperature=0.5,
+        )
+
+        response_text = ""
+        async for chunk in chat_coroutine:
+            if chunk and chunk.choices:
+                delta = chunk.choices[0].delta
+                if delta and hasattr(delta, "content") and delta.content:
+                    response_text += delta.content
+
+        try:
+            parsed_batch = json.loads(response_text)
+            if isinstance(parsed_batch, list):
+                all_json_objects.extend(parsed_batch)
+            else:
+                raise ValueError("Expected a list of JSON objects")
+        except Exception as e:
+            raise RuntimeError(f"Failed to parse model output as JSON: {str(e)}\nRaw response: {response_text}")
+
+    return all_json_objects
+
+
+# I could probably add this function to the summarize_answers function above
+# function to connect summaries of all JSON objects into a final answer
+async def connect_summaries(all_json_objects, processing_mode):
+    """Aggregate summarized chunks into a answer ."""
+
+    json_input_str = json.dumps(all_json_objects)
+    
+    # call model with final message prompt
+    all_messages = [{"role": "system", "content": "You are a helpful assistant."}]
+
+    # YUBI EDIT: add schema file for the payment information
+    if processing_mode == "payment":
+        schema_file = ""
+    else:
+        # default processing mode is billing
+        schema_file = bp.patient_schema
+
+    final_prompt = ""
+    if processing_mode == "payment":
+        # YUBI: add payment prompt here
+        final_prompt += "add prompt here"
+    else:
+        # default processing mode is billing
+        final_prompt += "This is a list of raw JSON data instances that each represent a patient based on the attached JSON schema. Review the list and combine any data instances that refer to the same patient. Data instances refer to the same patient if they have a similar Full Name. For example, full names are similar if they differ by a middle initial, middle name, switched order of first and last name, or spelled with different capitalization. There can be more than one CPT code or ICD code for a patient. For all other properties, if there are multiple, conflicting values for the same property in a JSON data instance, select a single value that is the most probable option. If there are any missing values, they should be returned as \"null\" in the JSON data instance. Return an array of JSON data instances where each data instance represents a unique patient. Format output as raw JSON only. Do not wrap the response in markdown backticks."
+
+    # IDK if this check is necessary
+    user_content = []
+    user_content.append({"text": json_input_str, "type": "text"})
+    user_content.append({"text": final_prompt, "type": "text"})
+    # add schema file to the user content
+    user_content.append({"type": "text", "text": json.dumps(schema_file)})
+    all_messages.append({"role": "user", "content": user_content})
+        
+
+    # send to model
+    chat_coroutine = await bp.openai_client.chat.completions.create(
+        # Azure Open AI takes the deployment name as the model name
+        model=bp.model_name,
+        messages=all_messages,
+        stream=True,
+        temperature=0.5,
+    )
+
+    # save answers
+    response_text = ""
+    async for chunk in chat_coroutine:
+        if chunk and chunk.choices:
+            delta = chunk.choices[0].delta
+            if delta and hasattr(delta, "content") and delta.content:
+                response_text += delta.content
+
+    # I'm not doing any data cleaning right now and assuming that the model returns raw JSON exactly the way I want it
+
+    return response_text
+
+
+'''
 async def summarize_answers(partials, processing_mode):
     """Aggregate partial answers into a single string."""
     partials_connected = "\n".join(partials)
@@ -234,6 +374,9 @@ async def summarize_answers(partials, processing_mode):
                 response_text += delta.content
 
     return response_text
+'''
+
+
 
 # helper function to validate patient fields returned from summarize_answers
 # for billing processing mode
@@ -389,7 +532,12 @@ async def process_pdf():
     # EDIT HERE: enable parameters to be passed to this function
     # YUBI: the message to call_model_on_image should differ based on processing   
     try:
-        final_answer = await summarize_answers(partial_answers, processing_mode)
+        summarized_answer = await summarize_answers(partial_answers, processing_mode)
+    except Exception as e:
+        return jsonify({"error": f"Failed during summarization: {str(e)}"}), 500
+    
+    try:
+        final_answer = await connect_summaries(summarized_answer, processing_mode)
     except Exception as e:
         return jsonify({"error": f"Failed during summarization: {str(e)}"}), 500
 
