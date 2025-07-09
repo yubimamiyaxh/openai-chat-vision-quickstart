@@ -116,10 +116,13 @@ async def image_to_base64(img: Image.Image):
     img.save(buffered, format="PNG")
     return base64.b64encode(buffered.getvalue()).decode("utf-8")
 
-async def call_model_on_image(image_base64, user_message):
-    # Example: send to model via HTTP or local function
-    # YUBI: make sure that all ' characters are formatted correctly
-    section_prompt = "The uploaded file is scanned medical documents of one or more medical patients. Identify the following information for each patient if it is in the documents: their full legal name, date of birth, sex, living address, email address, phone number, primary insurance name, primary insurance type, primary insurance Member ID number, primary insurance Group ID number, secondary insurance name, secondary insurance type, secondary insurance Member ID number, secondary insurance Group ID number, CPT code, and ICD code. The primary insurance may also be referred to as the main insurance or first insurance in these documents. There are two possible insurance types, Medicare and Commercial, where Commercial encompassses all insurances that are not Medicare. When a patient has both a commercial insurance and a Medicare only insurance, the Medicare insurance is the primary plan and the commercial insurance is the secondary plan. The Member ID number and the Group ID number consists of any combination of uppercase letters and numerical digits. In the returned information, the phone number should be returned as 10 digits with no dashes, parentheses, or spaces. In the returned information, the sex should be represented as either F for female or M for male. In the returned information, all of the commas should be removed from the living address. If there are multiple phone numbers listed for the patient, the returned information should provide their cell phone number. In the returned information, the date of birth should be written in MM/DD/YYYY format where the month, day, and year are represented numerically. A CPT code is a numerical five-digit code that represents medical services and procedures. If a code contains letters or symbols, it is not a CPT code. Return each CPT code as a string. If there is more than one CPT code, each code should be returned separately. An ICD code is an alphanumeric code that contains up to seven characters that represents a type of disease or health condition in a patient. If there is more than one ICD code, each code should be returned separately. For every piece of returned information, return it in a key-value pair separated by a colon where the key is the patient\'s full legal name and the value is the relevant returned information. All of the key-value pairs should then be returned as a comma separated list."
+async def call_model_on_image(image_base64, user_message, processing_mode):
+    section_prompt = ""
+    if processing_mode == "payment":
+        section_prompt += "write payment prompt here"
+    else:
+        # default processing mode is billing
+        section_prompt += "The uploaded file is scanned medical documents of one or more medical patients. Identify the following information for each patient if it is in the documents: their full legal name, date of birth, sex, living address, email address, phone number, primary insurance name, primary insurance type, primary insurance Member ID number, primary insurance Group ID number, secondary insurance name, secondary insurance type, secondary insurance Member ID number, secondary insurance Group ID number, CPT code, and ICD code. The primary insurance may also be referred to as the main insurance or first insurance in these documents. There are two possible insurance types, Medicare and Commercial, where Commercial encompassses all insurances that are not Medicare. When a patient has both a commercial insurance and a Medicare only insurance, the Medicare insurance is the primary plan and the commercial insurance is the secondary plan. The Member ID number and the Group ID number consists of any combination of uppercase letters and numerical digits. In the returned information, the phone number should be returned as 10 digits with no dashes, parentheses, or spaces. In the returned information, the sex should be represented as either F for female or M for male. In the returned information, all of the commas should be removed from the living address. If there are multiple phone numbers listed for the patient, the returned information should provide their cell phone number. In the returned information, the date of birth should be written in MM/DD/YYYY format where the month, day, and year are represented numerically. A CPT code is a numerical five-digit code that represents medical services and procedures. If a code contains letters or symbols, it is not a CPT code. Return each CPT code as a string. If there is more than one CPT code, each code should be returned separately. An ICD code is an alphanumeric code that contains up to seven characters that represents a type of disease or health condition in a patient. If there is more than one ICD code, each code should be returned separately. For every piece of returned information, return it in a key-value pair separated by a colon where the key is the patient\'s full legal name and the value is the relevant returned information. All of the key-value pairs should then be returned as a comma separated list."
     
     # This sends all messages, so API request may exceed token limits
     all_messages = [{"role": "system", "content": "You are a helpful assistant."}]
@@ -130,7 +133,7 @@ async def call_model_on_image(image_base64, user_message):
         user_content.append({"image_url": {"url": f"data:image/png;base64,{image_base64}", "detail": "auto"}, "type": "image_url"})
         all_messages.append({"role": "user", "content": user_content})
 
-    # send to model
+    # YUBI: I'm going to use same AI model for both processing modes for now
     chat_coroutine = await bp.openai_client.chat.completions.create(
         # Azure Open AI takes the deployment name as the model name
         model=bp.model_name,
@@ -178,14 +181,26 @@ async def call_model_followup(prompt):
 
     return response_text
 
-async def summarize_answers(partials):
+async def summarize_answers(partials, processing_mode):
     """Aggregate partial answers into a single string."""
     partials_connected = "\n".join(partials)
     # call model with final message prompt
     all_messages = [{"role": "system", "content": "You are a helpful assistant."}]
-    patient_schema_file = bp.patient_schema
 
-    final_prompt="This is a comma separated list of key-value pairs containing relevant information on one or more medical patients. Every key is a patient\'s full name and the associated value is one of the following: their full legal name, date of birth, sex, living address, email address, phone number, primary insurance name, primary insurance type, primary insurance Member ID number, primary insurance Group ID number, secondary insurance name, secondary insurance type, secondary insurance Member ID number, secondary insurance Group ID number, CPT code, or ICD code. There may be similar keys that can be reasonably assumed to belong to the same patient because the key is the patient\'s name. For example, some keys may include a middle initial, middle name, maiden name, switched order of first and last name, or spelled with different capitalization. Group the key-value pairs together in sets of similar keys and rename every key in each set with the same, longest full name that is known in each set. Then, use the aggregated data from these groupings to create an array of JSON data instances, where each data instance represents a unique patient. Return the full array of patients. There can be more than one CPT code for a patient. There can be more than one ICD code for a patient. If there are any missing values, they should be returned as \"null\" in the JSON data instance. Return only the raw JSON array. Do not wrap the response in markdown backticks. The JSON schema is attached to this message."
+    # YUBI EDIT: add schema file for the payment information
+    if processing_mode == "payment":
+        schema_file = ""
+    else:
+        # default processing mode is billing
+        schema_file = bp.patient_schema
+
+    final_prompt = ""
+    if processing_mode == "payment":
+        # YUBI: add payment prompt here
+        final_prompt += "add prompt here"
+    else:
+        # default processing mode is billing
+        final_prompt += "This is a comma separated list of key-value pairs containing relevant information on one or more medical patients. Every key is a patient\'s full name and the associated value is one of the following: their full legal name, date of birth, sex, living address, email address, phone number, primary insurance name, primary insurance type, primary insurance Member ID number, primary insurance Group ID number, secondary insurance name, secondary insurance type, secondary insurance Member ID number, secondary insurance Group ID number, CPT code, or ICD code. There may be similar keys that can be reasonably assumed to belong to the same patient because the key is the patient\'s name. For example, some keys may include a middle initial, middle name, maiden name, switched order of first and last name, or spelled with different capitalization. Group the key-value pairs together in sets of similar keys and rename every key in each set with the same, longest full name that is known in each set. Then, use the aggregated data from these groupings to create an array of JSON data instances, where each data instance represents a unique patient. Return the full array of patients. There can be more than one CPT code for a patient. There can be more than one ICD code for a patient. If there are any missing values, they should be returned as \"null\" in the JSON data instance. Return only the raw JSON array. Do not wrap the response in markdown backticks. The JSON schema is attached to this message."
 
     # IDK if this check is necessary
     if partials_connected:
@@ -193,7 +208,7 @@ async def summarize_answers(partials):
         user_content.append({"text": partials_connected, "type": "text"})
         user_content.append({"text": final_prompt, "type": "text"})
         # add schema file to the user content
-        user_content.append({"type": "text", "text": json.dumps(patient_schema_file)})
+        user_content.append({"type": "text", "text": json.dumps(schema_file)})
         all_messages.append({"role": "user", "content": user_content})
         
 
@@ -217,6 +232,7 @@ async def summarize_answers(partials):
     return response_text
 
 # helper function to validate patient fields returned from summarize_answers
+# for billing processing mode
 def validate_patient_fields(patients):
 
     annotated = []
@@ -262,6 +278,14 @@ def validate_patient_fields(patients):
             if not valid:
                 entry[key]["reason"] = reason
         annotated.append(entry)
+    return annotated
+
+# helper function to validate payment fields returned from summarize_answers
+# for payment processing mode
+# YUBI: write this function to validate payment fields
+def validate_payment_fields(payments):
+
+    annotated = "fill in here"
     return annotated
 
 # Updated code to handle PDF processing in parallel
@@ -335,7 +359,7 @@ async def process_pdf():
                 # Call the AI model with a timeout to avoid hanging
                 # EDIT HERE: enable parameters to be passed to this function
                 # YUBI: the message to call_model_on_image should differ based on processing mode
-                result = await asyncio.wait_for(call_model_on_image(img_base64, user_message), timeout=90)
+                result = await asyncio.wait_for(call_model_on_image(img_base64, user_message, processing_mode), timeout=90)
                 return result
             except asyncio.TimeoutError:
                 # Raise an error if processing times out for this batch
@@ -361,28 +385,40 @@ async def process_pdf():
     # EDIT HERE: enable parameters to be passed to this function
     # YUBI: the message to call_model_on_image should differ based on processing mode
     try:
-        final_answer = await summarize_answers(partial_answers)
+        final_answer = await summarize_answers(partial_answers, processing_mode)
     except Exception as e:
         return jsonify({"error": f"Failed during summarization: {str(e)}"}), 500
 
     # Parse the final aggregated model output as JSON
     try:
-        patients_json = json.loads(final_answer)
+        answer_json = json.loads(final_answer)
     except json.JSONDecodeError as e:
         # Return 500 error with raw output for debugging if JSON parsing fails
         return jsonify({"error": f"Failed to parse model output as JSON: {str(e)}", "raw_output": final_answer}), 500
 
-    # Validate the parsed patient data and annotate invalid fields
-    # EDIT HERE
-    # YUBI: this only applies to billing processing mode, so enable selection of this chunk of code
-    try:
-        annotated_patients = validate_patient_fields(patients_json)
-    except Exception as e:
-        current_app.logger.error("Validation failed: %s", e)
-        return {"error": "Validation error", "details": str(e)}, 500
+    # Validate the parsed data and annotate invalid fields
 
-    # Return the validated and annotated patient data as JSON response
-    return jsonify({"patients": annotated_patients})
+    if processing_mode == "payment":
+        try:
+            # YUBI: create a new function to validate payment fields
+            annotated_payments = validate_payment_fields(answer_json)
+        except Exception as e:
+            current_app.logger.error("Validation failed: %s", e)
+            return {"error": "Validation error", "details": str(e)}, 500
+
+        # YUBI: EDIT json to ensure that the key is "payments" instead of "patients"
+        return jsonify({"payments": annotated_payments})
+    else:
+        # default processing mode is billing
+        try:
+            annotated_patients = validate_patient_fields(answer_json)
+        except Exception as e:
+            current_app.logger.error("Validation failed: %s", e)
+            return {"error": "Validation error", "details": str(e)}, 500
+
+        # Return the validated and annotated patient data as JSON response
+        return jsonify({"patients": annotated_patients})
+
 
 # New route for follow-up
 @bp.route("/followup", methods=["POST"])
@@ -390,23 +426,26 @@ async def followup():
     try:
         form = await request.form
         message = form["message"]
-        previous_patients_raw = form.get("previous_patients")
+        # YUBI: Edit this function based on processing mode as well
+        # change from previous_patients to previous_answer so that it is more general
+        previous_answer_raw = form.get("previous_answer")
+
 
         # Parse the JSON string into an object
         try:
-            previous_patients_json = json.loads(previous_patients_raw)
+            previous_answer_json = json.loads(previous_answer_raw)
         except json.JSONDecodeError:
             return jsonify({"error": "Invalid JSON format for previous_patients"}), 400
 
         # Pretty-print the JSON for readability
-        previous_patients_pretty = json.dumps(previous_patients_json, indent=2)
+        previous_answer_pretty = json.dumps(previous_answer_json, indent=2)
 
         # Build model message with context
         followup_prompt = (
-            "The user has previously asked you to extract information from a scanned medical document. "
+            "The user has previously asked you to extract information from a scanned document. "
             "They now have a follow-up question. Below is the structured data from your previous response, "
             "and the user's follow-up question. Use this context to answer clearly and directly.\n\n"
-            f"Previous extracted data:\n{previous_patients_pretty}\n\n"
+            f"Previous extracted data:\n{previous_answer_pretty}\n\n"
             f"Follow-up question:\n{message}"
         )
 

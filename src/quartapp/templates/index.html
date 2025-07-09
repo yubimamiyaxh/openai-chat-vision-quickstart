@@ -19,7 +19,7 @@
 <body>
     <main class="h-100 mh-100 d-flex flex-column overflow-hidden justify-content-start">
         <div id="messages" class="px-4 pb-4 pt-2 flex-grow-1 overflow-y-auto overflow-x-hidden align-items-stretch">
-            <h2 id="no-messages-heading" class="text-center">Extract patient information by uploading patient records</h2>
+            <h2 id="no-messages-heading" class="text-center">Extract medical information by uploading records</h2>
             <template id="message-template-user">
                 <div class="toast-container position-static w-100 d-flex flex-column align-items-stretch">
                     <div class="toast fade show w-75 rounded-3 align-self-end">
@@ -43,7 +43,7 @@
                         <div class="toast-header text-light background-assistant">
                             <i class="bi bi-robot me-1" aria-hidden="true"></i>
                             <strong class="me-auto text-capitalize">
-                                Extracted Patient Information
+                                Extracted Information
                             </strong>
                         </div>
                         <div class="toast-body message-content">
@@ -136,8 +136,8 @@
         const assistantTemplate = document.querySelector('#message-template-assistant');
         const converter = new showdown.Converter();
         const messages = [];
-        // remember previous patients so that we can use them in follow-up questions
-        let previousPatients = null;
+        // remember previous answer so that we can use them in follow-up questions
+        let previousAnswer = null;
 
 
         const toBase64 = file => new Promise((resolve, reject) => {
@@ -227,6 +227,7 @@
         }
 
         // function to convert JSON response to table
+        // specific to Billing processing mode
         function annotatedJSONToTable(patients, assistantElement) {
             const table = document.createElement("table");
             table.className = "table table-bordered mt-2";
@@ -443,7 +444,7 @@
 
                 if (result.patients) {
                     // save results in global variable
-                    previousPatients = result.patients;
+                    previousAnswer = result.patients;
                     // If patients array is returned, show annotated table
                     annotatedJSONToTable(result.patients, messageDiv);
                 } 
@@ -458,7 +459,7 @@
 
                 // I think answer is the patients array
                 // const answer = ((result.patients) ||( "No answer received."));
-                const answer = "The patient information has been extracted successfully. You can ask follow-up questions about the results.";
+                const answer = "The information has been extracted successfully. You can ask follow-up questions about the results.";
                 // YUBI: I'm not sure if I want to write answer to the messageDiv
                 messageDiv.innerHTML = converter.makeHtml(answer);
                 messageDiv.scrollIntoView();
@@ -485,8 +486,8 @@
             const followupMessage = document.getElementById("followup-message").value;
             if (!followupMessage) return;
 
-            // check that previousPatients is not null
-            if (!previousPatients) {
+            // check that previousAnswer is not null
+            if (!previousAnswer) {
                 alert("Please process a file first before asking follow-up questions.");
                 return;
             }
@@ -494,8 +495,8 @@
             // access same file but with different message
             const formData = new FormData();
             formData.append("message", followupMessage);
-            // add result.patients from previous results to formData
-            formData.append("previous_patients", JSON.stringify(previousPatients));
+            // add previous results to formData, saved as global variable
+            formData.append("previous_answer", JSON.stringify(previousAnswer));
 
             const response = await fetch("/followup", {
                 method: "POST",
