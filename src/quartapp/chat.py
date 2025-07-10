@@ -386,15 +386,15 @@ def validate_patient_fields(patients):
     for patient in patients:
         entry = {}
         for key, value in patient.items():
-            if isinstance(value, str) and value in ["null", "None", ""]:
+            if isinstance(value, str) and value in ["null", "None", "", "N/A", "not provided", " "]:
                 # do not highlight empty cells because they are already empty
                 valid = True
             elif key == "Date of Birth":
-                valid = bool(re.match(r"\d{2}/\d{2}/\d{4}", str(value)))
-                # YUBI: I can change these reasons to something more vague after I test
-                reason = None if valid else "Invalid format, must be MM/DD/YYYY"
+                # value can be any arrangement of numbers and dashes or slashes, but can't have any alphabetic characters
+                valid = bool(re.match(r"^\d{1,4}[-/]\d{1,4}[-/]\d{1,4}$", str(value)))
+                reason = None if valid else "Date has invalid characters or format"
             elif key == "Sex":
-                valid = value in {"M", "F"}
+                valid = value in {"M", "F", "Male", "Female"}
                 reason = None if valid else "Must be 'M' or 'F'"
             elif key == "Phone Number":
                 valid = bool(re.match(r"^\d{10}$", str(value)))
