@@ -443,12 +443,14 @@
 
                     // break down into pages and payments
                     const pagesText = document.createElement("p");
-                    if (result.payments) {
+                    if (result.pages) {
                         // Show pages as plain text
-                        pagesText.textContent = `Payments were found on the following pages: ${result.pages.join(", ")}`;
+                        let pagesAnswer = 'Payments were found on the following pages: ${result.pages.join(", ")}';
+                        pagesText.innerHTML = converter.makeHtml(pagesAnswer);
                     } else {
                         // If no payments found, show a message
-                        pagesText.textContent = "No payments found in the document.";
+                        let pagesAnswer = 'No payments found in the document.';
+                        pagesText.innerHTML = converter.makeHtml(pagesAnswer);
                     }
                     messageDiv.appendChild(pagesText);
 
