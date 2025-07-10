@@ -228,13 +228,20 @@
 
         // function to convert JSON response to table
         // specific to Billing processing mode
-        function annotatedJSONToTable(patients, assistantElement) {
+        function annotatedJSONToTable(patients, assistantElement, selectedMode) {
             const table = document.createElement("table");
             table.className = "table table-bordered mt-2";
 
             if (!patients || patients.length === 0) return;
 
-            const propertyOrder = ["Patient Name", "Date of Birth", "Sex", "Address", "Email", "Phone",  "Primary Insurance Name", "Primary Insurance Type", "Primary Insurance Member ID", "Primary Insurance Group ID", "Secondary Insurance Name", "Secondary Insurance Type", "Secondary Insurance Member ID", "Secondary Insurance Group ID", "CPT Codes", "ICD Codes"];
+            let propertyOrder = [];
+
+            if (selectedMode === "payment") {
+                propertyOrder = ["Payer Name", "Receiver Name", "Monetary Value", "Payment Type", "Page Number", "Check Number", "Credit Card Number", "CVV Code", "Expiration Date"];
+            } else {
+                // default processing mode is billing
+                propertyOrder = ["Patient Name", "Date of Birth", "Sex", "Address", "Email", "Phone",  "Primary Insurance Name", "Primary Insurance Type", "Primary Insurance Member ID", "Primary Insurance Group ID", "Secondary Insurance Name", "Secondary Insurance Type", "Secondary Insurance Member ID", "Secondary Insurance Group ID", "CPT Codes", "ICD Codes"];
+            }
 
             // Create table header using propertyOrder
             const thead = document.createElement("thead");
@@ -338,6 +345,7 @@
         }
 
 
+        // Event listener for form submission
         form.addEventListener("submit", async function(e) {
             e.preventDefault();
 
@@ -442,23 +450,25 @@
                     return;
                 }
 
-                if (result.patients) {
-                    // save results in global variable
+                if (selectedMode === "payment") {
+                    // break down into pages and payments
+                    if (result.payments) {
+                        // Show pages as plain text
+                        const pagesText = document.createElement("p");
+                        pagesText.textContent = `Payments were found on the following pages: ${result.pages.join(", ")}`;
+                        messageDiv.appendChild(pagesText);
+                    }
+                    if (result.payments) {
+                        previousAnswer = result.payments;
+                        // Show payments table
+                        annotatedJSONToTable(result.payments, messageDiv, selectedMode);
+                    }
+                } else if (selectedMode === "billing" && result.patients) {
                     previousAnswer = result.patients;
-                    // If patients array is returned, show annotated table
-                    annotatedJSONToTable(result.patients, messageDiv);
-                } 
-
-                // optional fallback for CSV string-based tables
-                /*
-                else if (result.answer && typeof result.answer === "string") {
-                    // If answer is a CSV string, convert to table
-                    csvToTable(result.answer, messageDiv);
+                    annotatedJSONToTable(result.patients, messageDiv, selectedMode);
                 }
-                */
 
-                // I think answer is the patients array
-                // const answer = ((result.patients) ||( "No answer received."));
+
                 const answer = "The information has been extracted successfully. You can ask follow-up questions about the results.";
                 // YUBI: I'm not sure if I want to write answer to the messageDiv
                 messageDiv.innerHTML = converter.makeHtml(answer);
