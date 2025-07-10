@@ -137,7 +137,6 @@ async def index():
 
 # Convert a PyMuPDF page to a PIL image.
 async def convert_pdf_page_to_image(page):
-    # lower resolution of displayed PDF for performance
     pix = page.get_pixmap(dpi=100)
     img_bytes = pix.tobytes("png")
     return Image.open(BytesIO(img_bytes))
@@ -154,7 +153,7 @@ async def call_model_on_image(image_base64, user_message, processing_mode):
     user_content = []
 
     if processing_mode == "payment":
-        section_prompt += "The file is a series of scanned letters that may contain Explanation of Benefits (EOB) and associated payments for medical patients. The EOB is from the patient\'s health insurance company and analyzes their medical costs. For every EOB, I want to know the full name of the patient, the allowed amount of money that can be billed to the health insurance company, and the name of the health insurance company. The associated payments are one of two types: Check or Virtual Credit Card. They are from a health insurance company and are addressed to a medical facility. For every payment, I want to know the payer name, receiver name, monetary value, payment type, and page number it is on. The page number is in the bottom left corner of every page. For every check, I also want to know the check number. For every virtual credit card, I also want to know the credit card number, the CVV code, and the expiration date. Represent the information as one of the attached JSON schemas based on whether it is an EOB or a payment. Return two arrays in a JSON object with the following keys: page_array and objects_array. page_array should contain an array of all the page numbers containing a check or virtual credit card payment. objects_array should contain an array of all JSON data instances found. Format each array and your full response as only raw JSON. Do not include any explanation or commentary. Do not wrap the response in markdown backticks."
+        section_prompt += "The file is a series of scanned letters that may contain Explanation of Benefits (EOB) and associated payments for medical patients. The EOB is from the patient\'s health insurance company and analyzes their medical costs. For every EOB, I want to know the full name of the patient, the allowed amount of money that can be billed to the health insurance company, and the name of the health insurance company. The associated payments are one of two types: Check or Virtual Credit Card. They are from a health insurance company and are addressed to a medical facility. For every payment, I want to know the payer name, receiver name, the amount of money of the payment (Monetary Value), payment type, and page number it is on. The page number is written as \'Page # of #\' on every page, where # symbolizes a number. For every check, I also want to know the check number. For every virtual credit card, I also want to know the credit card number, the CVV code, and the expiration date. Represent the information as one of the attached JSON schemas based on whether it is an EOB or a payment. Return two arrays in a JSON object with the following keys: page_array and objects_array. page_array should contain an array of all the page numbers containing a check or virtual credit card payment. objects_array should contain an array of all JSON data instances found. Format each array and your full response as only raw JSON. Do not include any explanation or commentary. Do not wrap the response in markdown backticks."
         user_content.append({"type": "text", "text": json.dumps(bp.payment_schema)})
         user_content.append({"type": "text", "text": json.dumps(bp.EOB_schema)})
     else:
@@ -614,6 +613,9 @@ async def process_pdf():
             batch_results = await asyncio.gather(*tasks)
             partial_pages = [r[0] for r in batch_results if r is not None]
             partial_objects = [r[1] for r in batch_results if r is not None]
+
+            # YUBI: DEBUGGING by returning the partial objects and partial pages
+            return jsonify({"payments": partial_objects, "pages": partial_pages}), 200
         else:
             # Run all batch tasks concurrently (limited by semaphore)
             batch_results = await asyncio.gather(*tasks)
