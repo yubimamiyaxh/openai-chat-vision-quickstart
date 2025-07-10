@@ -438,6 +438,11 @@
                 }
 
                 messageDiv.innerHTML = "";
+                const summary = document.createElement("p");
+                const answer = "The information has been extracted successfully. You can ask follow-up questions about the results.";
+                // YUBI: I'm not sure if I want to write answer to the messageDiv
+                summary.innerHTML = converter.makeHtml(answer);
+                messageDiv.appendChild(summary);
 
                 if (selectedMode === "payment") {
 
@@ -464,12 +469,6 @@
                     previousAnswer = result.patients;
                     annotatedJSONToTable(result.patients, messageDiv, selectedMode);
                 }
-
-                const summary = document.createElement("p");
-                const answer = "The information has been extracted successfully. You can ask follow-up questions about the results.";
-                // YUBI: I'm not sure if I want to write answer to the messageDiv
-                summary.innerHTML = converter.makeHtml(answer);
-                messageDiv.appendChild(summary);
 
                 messages.push({
                     "role": "assistant",
