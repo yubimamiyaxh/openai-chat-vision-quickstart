@@ -21,27 +21,17 @@
     "Payment Page Number": {
       "type": "integer"
     },
-    "Virtual Credit Card": {
-      "type": "object",
-      "properties": {
-        "Credit Card Number": {
-            "type": "number"
-        },
-        "CVV Code": {
-            "type": "integer"
-        },
-        "Expiration Date": {
-            "type": "string"
-        }
-        }
+    "Credit Card Number": {
+        "type": "number"
     },
-    "Check": {
-      "type": "object",
-      "properties": {
-        "Check Number": {
-            "type": "number"
-        }
-    }
+    "CVV Code": {
+        "type": "integer"
+    },
+    "Expiration Date": {
+        "type": "string"
+    },
+    "Check Number": {
+        "type": "number"
     }
 },
   "required": ["Payer Name", "Receiver Name", "Patient Name", "Allowed Billable Amount", "Payment Type", "Payment Page Number"]
