@@ -244,7 +244,8 @@ async def summarize_pages(partials):
 
 # summarize answers function that batches the partial answers for batched calls to AI model
 # returns a list of JSON data instances
-async def summarize_matches(partials, batch_token_limit=6000):
+# change token limit from 6000 to 12000
+async def summarize_matches(partials, batch_token_limit=12000):
     """Aggregate partial answers into a single list of JSON objects by batching."""
 
     def count_tokens(text):
