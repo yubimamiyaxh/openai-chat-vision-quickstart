@@ -643,12 +643,18 @@ async def process_pdf():
         except Exception as e:
             return jsonify({"error": f"Failed during summarization of pages: {str(e)}"}), 500
         
+        matches_json = all_matches
+        
+        '''
         # Parse the final aggregated model output as JSON
         try:
+            # all_matches is already a list of json objects so you don't need to parse it
             matches_json = json.loads(all_matches)
         except json.JSONDecodeError as e:
             # Return 500 error with raw output for debugging if JSON parsing fails
             return jsonify({"error": f"Failed to parse model matches output as JSON: {str(e)}", "raw_output": all_matches}), 500
+        '''
+        
     else:  
         try:
             summarized_answer = await summarize_answers(partial_answers, processing_mode)
