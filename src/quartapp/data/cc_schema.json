@@ -9,21 +9,21 @@
     "Receiver Name": {
       "type": "string"
     },
-    "Monetary card value": {
+    "Monetary Card Value": {
       "type": "number"
     },
-    "Credit card number": {
+    "Credit Card Number": {
       "type": "number"
     },
-    "CVV code": {
+    "CVV Code": {
       "type": "integer"
     },
-    "Expiration date": {
+    "Expiration Date": {
       "type": "string"
     },
     "Page Number": {
       "type": "integer"
     }
 },
-  "required": ["Payer Name", "Receiver Name", "Monetary card value", "Credit card number", "CVV code", "Expiration date", "Page Number"]
+  "required": ["Payer Name", "Receiver Name", "Monetary Card Value", "Credit Card Number", "CVV Code", "Expiration Date", "Page Number"]
 }

@@ -9,15 +9,15 @@
     "Receiver Name": {
       "type": "string"
     },
-    "Monetary check value": {
+    "Monetary Check Value": {
       "type": "number"
     },
-    "Check number": {
+    "Check Number": {
       "type": "number"
     },
     "Page Number": {
       "type": "integer"
     }
     },
-  "required": ["Payer Name", "Receiver Name", "Monetary check value", "Check number", "Page Number"]
+  "required": ["Payer Name", "Receiver Name", "Monetary Check Value", "Check Number", "Page Number"]
 }

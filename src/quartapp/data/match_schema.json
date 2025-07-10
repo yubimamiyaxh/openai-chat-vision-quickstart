@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "EOB Payment Match",
+  "type": "object",
+  "properties": {
+    "Payer Name": {
+      "type": "string"
+    },
+    "Receiver Name": {
+      "type": "string"
+    },
+    "Patient Name": {
+      "type": "string"
+    },
+    "Allowed Billable Amount": {
+      "type": "number"
+    },
+    "Payment Type": {
+      "type": "string"
+    },
+    "Payment Page Number": {
+      "type": "integer"
+    },
+    "Virtual Credit Card": {
+      "type": "object",
+      "properties": {
+        "Credit Card Number": {
+            "type": "number"
+        },
+        "CVV Code": {
+            "type": "integer"
+        },
+        "Expiration Date": {
+            "type": "string"
+        }
+        }
+    },
+    "Check": {
+      "type": "object",
+      "properties": {
+        "Check Number": {
+            "type": "number"
+        }
+    }
+    }
+},
+  "required": ["Payer Name", "Receiver Name", "Patient Name", "Allowed Billable Amount", "Payment Type", "Payment Page Number"]
+}

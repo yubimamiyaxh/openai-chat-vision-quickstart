@@ -6,16 +6,16 @@
     "Patient Name": {
       "type": "string"
     },
-    "Allowed billable amount": {
+    "Allowed Billable Amount": {
       "type": "number"
     },
-    "Health insurance company": {
+    "Health Insurance Company": {
       "type": "string"
     }
 },
   "required": [
     "Patient Name",
-    "Allowed billable amount",
-    "Health insurance company"
+    "Allowed Billable Amount",
+    "Health Insurance Company"
   ]
 }
