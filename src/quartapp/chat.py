@@ -254,11 +254,9 @@ async def summarize_matches(partials, batch_token_limit=6000):
         except Exception:
             return len(text.split())  # Fallback: approx 1 token per word
 
-    EOB_schema_file = bp.EOB_schema
-    payment_schema_file = bp.payment_schema
     match_schema_file = bp.match_schema
 
-    summary_prompt = "This is an array of JSON data instances that represents either an Explanation of Benefits (EOB) or a Payment. The JSON schemas for these data instances are attached. Match the data instances by pairing an EOB with a payment. They match when the Allowed Billable Amount of an EOB is equal to the Payment Monetary Value of a payment. Format the matches as JSON data instances using the attached EOB Payment Match JSON Schema. Return an array of all matches. Format output as raw JSON only. Do not wrap the response in markdown backticks."
+    summary_prompt = "This is an array of JSON data instances that represents either an Explanation of Benefits (EOB) or a Payment. Match the data instances together by pairing an EOB instance with a Payment instance. The instances match when the Allowed Billable Amount of an EOB instance is equal to the Payment Monetary Value of a Payment instance. Format each match as a new JSON data instance using the attached EOB Payment Match JSON Schema. Return an array of all Match data instances. Format output as raw JSON only. Do not wrap the response in markdown backticks."    
     
     # Chunk partials to respect token limit per batch
     batches = []
@@ -291,8 +289,6 @@ async def summarize_matches(partials, batch_token_limit=6000):
                 "content": [
                     {"text": partials_connected, "type": "text"},
                     {"text": summary_prompt, "type": "text"},
-                    {"type": "text", "text": json.dumps(EOB_schema_file)},
-                    {"type": "text", "text": json.dumps(payment_schema_file)},
                     {"type": "text", "text": json.dumps(match_schema_file)},
                 ]
             }
@@ -654,7 +650,7 @@ async def process_pdf():
             # Return 500 error with raw output for debugging if JSON parsing fails
             return jsonify({"error": f"Failed to parse model matches output as JSON: {str(e)}", "raw_output": all_matches}), 500
         '''
-        
+
     else:  
         try:
             summarized_answer = await summarize_answers(partial_answers, processing_mode)
