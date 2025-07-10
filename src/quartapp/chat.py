@@ -615,7 +615,7 @@ async def process_pdf():
             partial_objects = [r[1] for r in batch_results if r is not None]
 
             # YUBI: DEBUGGING by returning the partial objects and partial pages
-            return jsonify({"payments": partial_objects, "pages": partial_pages}), 200
+            # return jsonify({"payments": partial_objects, "pages": partial_pages}), 200
         else:
             # Run all batch tasks concurrently (limited by semaphore)
             batch_results = await asyncio.gather(*tasks)
