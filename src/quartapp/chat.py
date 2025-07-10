@@ -105,19 +105,20 @@ async def shutdown_openai():
 async def index():
     return await render_template("index.html")
 
+# Convert a PyMuPDF page to a PIL image.
 async def convert_pdf_page_to_image(page):
-    """Convert a PyMuPDF page to a PIL image."""
     # lower resolution of displayed PDF for performance
     pix = page.get_pixmap(dpi=100)
     img_bytes = pix.tobytes("png")
     return Image.open(BytesIO(img_bytes))
 
+# Convert a PIL image to a base64 string.
 async def image_to_base64(img: Image.Image):
-    """Convert a PIL image to a base64 string."""
     buffered = BytesIO()
     img.save(buffered, format="PNG")
     return base64.b64encode(buffered.getvalue()).decode("utf-8")
 
+# Call the AI model with the image and user message
 async def call_model_on_image(image_base64, user_message, processing_mode):
     section_prompt = ""
     if processing_mode == "payment":
@@ -156,9 +157,8 @@ async def call_model_on_image(image_base64, user_message, processing_mode):
 
     return response_text
 
+# Call the AI model for follow-up questions
 async def call_model_followup(prompt):
-    # Example: send to model via HTTP or local function
-    # YUBI: make sure that all ' characters are formatted correctly
     
     # This sends all messages, so API request may exceed token limits
     all_messages = [{"role": "system", "content": "You are a helpful assistant."}]
@@ -187,7 +187,6 @@ async def call_model_followup(prompt):
 
 # summarize answers function that batches the partial answers for batched calls to AI model
 # returns a list of JSON data instances
-# batch token limit is lowered to 6,000 tokens by default
 async def summarize_answers(partials, processing_mode, batch_token_limit=6000):
     """Aggregate partial answers into a single list of JSON objects by batching."""
 
@@ -266,7 +265,6 @@ async def summarize_answers(partials, processing_mode, batch_token_limit=6000):
     return all_json_objects
 
 
-# I could probably add this function to the summarize_answers function above
 # function to connect summaries of all JSON objects into a final answer
 async def connect_summaries(all_json_objects, processing_mode):
     """Aggregate summarized chunks into a answer ."""
@@ -320,62 +318,6 @@ async def connect_summaries(all_json_objects, processing_mode):
     # I'm not doing any data cleaning right now and assuming that the model returns raw JSON exactly the way I want it
 
     return response_text
-
-
-'''
-async def summarize_answers(partials, processing_mode):
-    """Aggregate partial answers into a single string."""
-    partials_connected = "\n".join(partials)
-    # call model with final message prompt
-    all_messages = [{"role": "system", "content": "You are a helpful assistant."}]
-
-    # YUBI EDIT: add schema file for the payment information
-    if processing_mode == "payment":
-        schema_file = ""
-    else:
-        # default processing mode is billing
-        schema_file = bp.patient_schema
-
-    final_prompt = ""
-    if processing_mode == "payment":
-        # YUBI: add payment prompt here
-        final_prompt += "add prompt here"
-    else:
-        # default processing mode is billing
-        # final_prompt += "This is a comma separated list of key-value pairs containing information on medical patients. Every key is a patient\'s full name and the associated value is one of the following: their full legal name, date of birth, sex, living address, email address, phone number, primary insurance name, primary insurance type, primary insurance Member ID number, primary insurance Group ID number, secondary insurance name, secondary insurance type, secondary insurance Member ID number, secondary insurance Group ID number, CPT code, or ICD code. There may be similar keys that can be reasonably assumed to belong to the same patient because the key is the patient\'s name. For example, some keys may include a middle initial, middle name, switched order of first and last name, or spelled with different capitalization. Group the key-value pairs together in sets of similar keys and rename every key in each set with the same, longest full name that is known in each set. Then, use the aggregated data from these groupings to create an array of JSON data instances, where each data instance represents a unique patient. The JSON schema is attached to this message. There can be more than one CPT code or ICD code for a patient. For all other properties, if there are multiple, conflicting values for the same property in a JSON data instance, select a single value that is the most probable option. If there are any missing values, they should be returned as \"null\" in the JSON data instance. Return the full array of unique patients. Return only the raw JSON array. Do not wrap the response in markdown backticks."
-        # YUBI: testing simpler prompt
-        final_prompt += "This is a comma separated list of key-value pairs containing information on medical patients. Every key is a patient\'s full name and the associated value is one of the following: their full name, date of birth, sex, living address, email address, phone number, primary insurance name, primary insurance type, primary insurance Member ID number, primary insurance Group ID number, secondary insurance name, secondary insurance type, secondary insurance Member ID number, secondary insurance Group ID number, CPT code, or ICD code. There may be similar keys that can be reasonably assumed to belong to the same patient because the key is the patient\'s name. For example, some keys may include a middle initial, middle name, switched order of first and last name, or spelled with different capitalization. Group the key-value pairs together in sets of similar keys and rename every key in each set with the same, longest full name that is known in each set. Then, use the aggregated data from these groupings to create an array of JSON data instances, where each data instance represents a unique patient. The JSON schema is attached to this message. There can be more than one CPT code or ICD code for a patient. For all other properties, if there are multiple, conflicting values for the same property in a JSON data instance, select a single value that is the most probable option. If there are any missing values, they should be returned as \"null\" in the JSON data instance. Return a JSON array of all unique patients. Format output as raw JSON only. Do not wrap the response in markdown backticks."
-
-    # IDK if this check is necessary
-    if partials_connected:
-        user_content = []
-        user_content.append({"text": partials_connected, "type": "text"})
-        user_content.append({"text": final_prompt, "type": "text"})
-        # add schema file to the user content
-        user_content.append({"type": "text", "text": json.dumps(schema_file)})
-        all_messages.append({"role": "user", "content": user_content})
-        
-
-    # send to model
-    chat_coroutine = await bp.openai_client.chat.completions.create(
-        # Azure Open AI takes the deployment name as the model name
-        model=bp.model_name,
-        messages=all_messages,
-        stream=True,
-        temperature=0.5,
-    )
-
-    # save answers
-    response_text = ""
-    async for chunk in chat_coroutine:
-        if chunk and chunk.choices:
-            delta = chunk.choices[0].delta
-            if delta and hasattr(delta, "content") and delta.content:
-                response_text += delta.content
-
-    return response_text
-'''
-
 
 
 # helper function to validate patient fields returned from summarize_answers

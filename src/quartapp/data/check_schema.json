@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Check",
+  "type": "object",
+  "properties": {
+    "Payer Name": {
+      "type": "string"
+    },
+    "Receiver Name": {
+      "type": "string"
+    },
+    "Monetary check value": {
+      "type": "number"
+    },
+    "Check number": {
+      "type": "number"
+    },
+    "Page Number": {
+      "type": "integer"
+    }
+    },
+  "required": ["Payer Name", "Receiver Name", "Monetary check value", "Check number", "Page Number"]
+}

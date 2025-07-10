@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Explanation of Benefit",
+  "type": "object",
+  "properties": {
+    "Patient Name": {
+      "type": "string"
+    },
+    "Allowed billable amount": {
+      "type": "number"
+    },
+    "Health insurance company": {
+      "type": "string"
+    }
+},
+  "required": [
+    "Patient Name",
+    "Allowed billable amount",
+    "Health insurance company"
+  ]
+}
