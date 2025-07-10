@@ -366,6 +366,8 @@
             const userTemplateClone = userTemplate.content.cloneNode(true);
             userTemplateClone.querySelector(".message-content").innerText = message;
             
+            // try removing content preview in chat area
+            /*
             if (file) {
                 if (file.type.startsWith("image/")) {
                     fileDataTemp = file ? await toBase64(file) : null;
@@ -375,25 +377,10 @@
                     userTemplateClone.querySelector(".message-file").appendChild(img);
                 } else if (file.type === "application/pdf" || fileName.endsWith(".pdf")) {
 
-                    /*
-                    const displayData = file ? await toBase64(file) : null;
-
-                    // display PDF
-                    const iframe = document.createElement("iframe");
-                    iframe.src = displayData;
-                    iframe.width = "100%";
-                    iframe.height = "300px";
-                    iframe.classList.add("mb-2");
-                    userTemplateClone.querySelector(".message-file").appendChild(iframe);
-                    */
-
-                    // this function should work with PDF as well as images
-                    // YUBI: recent EDIT to take away conversion bc it is not necessary since we are using formData
-                    // fileDataTemp = file ? await toBase64(file) : null;
-
                     imagePreview.style.display = "none";
                 }
             }
+            */
             
             const fileData = fileDataTemp;
             targetContainer.appendChild(userTemplateClone);
