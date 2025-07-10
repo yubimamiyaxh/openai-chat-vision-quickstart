@@ -438,18 +438,24 @@
                 }
 
                 if (selectedMode === "payment") {
+
                     // break down into pages and payments
+                    const pagesText = document.createElement("p");
                     if (result.payments) {
                         // Show pages as plain text
-                        const pagesText = document.createElement("p");
                         pagesText.textContent = `Payments were found on the following pages: ${result.pages.join(", ")}`;
-                        messageDiv.appendChild(pagesText);
+                    } else {
+                        // If no payments found, show a message
+                        pagesText.textContent = "No payments found in the document.";
                     }
+                    messageDiv.appendChild(pagesText);
+
                     if (result.payments) {
                         previousAnswer = result.payments;
                         // Show payments table
                         annotatedJSONToTable(result.payments, messageDiv, selectedMode);
                     }
+                    
                 } else if (selectedMode === "billing" && result.patients) {
                     previousAnswer = result.patients;
                     annotatedJSONToTable(result.patients, messageDiv, selectedMode);
