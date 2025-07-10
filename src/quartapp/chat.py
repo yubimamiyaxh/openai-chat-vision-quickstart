@@ -187,8 +187,8 @@ async def call_model_followup(prompt):
 
 # summarize answers function that batches the partial answers for batched calls to AI model
 # returns a list of JSON data instances
-# batch token limit is 10,000 tokens by default
-async def summarize_answers(partials, processing_mode, batch_token_limit=10000):
+# batch token limit is lowered to 6,000 tokens by default
+async def summarize_answers(partials, processing_mode, batch_token_limit=6000):
     """Aggregate partial answers into a single list of JSON objects by batching."""
 
     def count_tokens(text):
