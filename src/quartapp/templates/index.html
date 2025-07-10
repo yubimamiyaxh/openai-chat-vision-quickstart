@@ -445,7 +445,7 @@
                     const pagesText = document.createElement("p");
                     if (result.pages) {
                         // Show pages as plain text
-                        let pagesAnswer = 'Payments were found on the following pages: ${result.pages.join(", ")}';
+                        let pagesAnswer = `Payments were found on the following pages: ${result.pages.join(", ")}`;
                         pagesText.innerHTML = converter.makeHtml(pagesAnswer);
                     } else {
                         // If no payments found, show a message
