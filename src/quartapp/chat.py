@@ -511,10 +511,18 @@ def validate_patient_fields(patients):
 
 # helper function to validate payment fields returned from summarize_answers
 # for payment processing mode
-# YUBI: write this function to validate payment fields
+# YUBI: write this function to validate payment fields later
+# TODO
 def validate_payment_fields(payments):
-    # fill in code here to validate payment fields
-    return payments
+    # set everything to valid by default
+    annotated = []
+    for payment in payments:
+        entry = {}
+        for key, value in payment.items():
+            valid = True
+            entry[key] = {"value": value, "valid": valid}
+        annotated.append(entry)
+    return annotated
 
 # Updated code to handle PDF processing in parallel
 # YUBI: double check this
