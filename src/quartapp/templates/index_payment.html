@@ -1,5 +1,6 @@
 <!-- This html validates JSON outputs from AI model -->
  <!-- This html formats the PDF to be smaller and the text boxes larger -->
+  <!-- This html processes and displays the full payment processing flow, including a table of matches -->
 
 <!doctype html>
 <html lang="en" class="h-100">
@@ -365,6 +366,22 @@
             const userTemplateClone = userTemplate.content.cloneNode(true);
             userTemplateClone.querySelector(".message-content").innerText = message;
             
+            // try removing content preview in chat area
+            /*
+            if (file) {
+                if (file.type.startsWith("image/")) {
+                    fileDataTemp = file ? await toBase64(file) : null;
+                    const img = document.createElement("img");
+                    img.src = fileDataTemp;
+                    img.classList.add("img-fluid"); // is this necessary?
+                    userTemplateClone.querySelector(".message-file").appendChild(img);
+                } else if (file.type === "application/pdf" || fileName.endsWith(".pdf")) {
+
+                    imagePreview.style.display = "none";
+                }
+            }
+            */
+            
             const fileData = fileDataTemp;
             targetContainer.appendChild(userTemplateClone);
 
@@ -429,6 +446,7 @@
 
                 if (selectedMode === "payment") {
 
+                    // break down into pages and payments
                     const pagesText = document.createElement("p");
                     if (result.pages) {
                         // Show pages as plain text
@@ -440,6 +458,12 @@
                         pagesText.innerHTML = converter.makeHtml(pagesAnswer);
                     }
                     messageDiv.appendChild(pagesText);
+
+                    if (result.payments) {
+                        previousAnswer = result.payments;
+                        // Show payments table
+                        annotatedJSONToTable(result.payments, messageDiv, selectedMode);
+                    }
 
                 } else if (selectedMode === "billing" && result.patients) {
                     previousAnswer = result.patients;

@@ -1,4 +1,5 @@
 # This is a new chat.py file that uses asyncio.gather to parallelize the processing of PDF pages.
+# This tried to complete the full payment processing flow
 
 import json
 import os
@@ -153,11 +154,13 @@ async def image_to_base64(img: Image.Image):
 async def call_model_on_image(image_base64, user_message, processing_mode):
     section_prompt = ""
     user_content = []
+    # YUBI: I am setting this right now, but we want this to be dynamic based on the number of pages in the PDF
+    total_pg_count = 2000
 
     if processing_mode == "payment":
-        # YUBI: I am setting this right now, but we want this to be dynamic based on the number of pages in the PDF
-        total_pg_count = 2000
-        section_prompt += f"This image is a section of a scanned PDF document that may contain payments for medical services. There are 2 types of Payment: Check and Virtual Card. A check typically includes a printed check number in the top right corner, a payor name in the upper left corner, a payment amount written in numeric form and spelled out in words, a signature line on the bottom right, and a long sequence of numbers printed in MICR format along the bottom. A virtual card typically includes a 16-digit card number, a CVV or CVV2 code, an expiration date written in MM/YY format, and a credit card company logo all grouped together inside a visual box labeled \'Virtual Card\'. The card may appear alongside the heading \'Mastercard Express ClaimsCard\'. The card is displayed next to a payment Amount shown in dollar format. For every payment in the document, extract the page number it is on. The page number is written as \'Page # of {total_pg_count}\' on every page, where # represents the page number. Return an array of all the page numbers containing a payment. If there are no payments found, return an empty array. Format your full response as raw JSON only. Do not include any explanation or commentary. Do not wrap the response in markdown backticks."
+        section_prompt += f"The file is a series of scanned letters that contains Explanation of Benefits (EOB) and associated Payments for medical services. The EOB is from a medical patient\'s health insurance company and analyzes their medical costs in a chart. For every EOB, extract the full name of the patient, the amount of money paid by the health insurance company (Amount Paid), and the name of the health insurance company. The Amount Paid is written in the most bottom-right entry of the EOB chart. There are 2 types of payment: Check and Virtual Card. A scanned check typically includes: a printed check number in the top right corner, a payor name in the upper left corner, a payment amount written in numeric form and spelled out in words, a signature line on the bottom right, and a long sequence of numbers printed in MICR format along the bottom. A virtual card page typically includes a 16-digit card number, a CVV or CVV2 code, and an expiration date written in MM/YY format grouped together inside a visual box labeled \'Virtual Card\'. The card may appear alongside the heading \'Mastercard Express ClaimsCard\' and a payment Amount shown in dollar format. For every payment, extract the payer name, receiver name, the amount of money of the payment (Monetary Value), payment type, and page number it is on. The page number is written as \'Page # of {total_pg_count}\' on every page, where # represents the page number. If there are any EOB or Payment object(s) in the file, represent it as one of the attached JSON schemas based on whether it is an EOB or Payment. Return two arrays in a JSON object with the following keys: page_array and objects_array. page_array is an array of all the page numbers containing a check or virtual card payment. objects_array is an array of all JSON EOB and Payment data instances found. Format each array and your full response as raw JSON only. Empty arrays are allowed. Do not include any explanation or commentary. Do not wrap the response in markdown backticks."
+        user_content.append({"type": "text", "text": json.dumps(bp.payment_schema)})
+        user_content.append({"type": "text", "text": json.dumps(bp.EOB_schema)})
     else:
         # default processing mode is billing
         # section_prompt += "The uploaded file is scanned medical documents of one or more medical patients. Identify the following information for each patient if it is in the documents: their full legal name, date of birth, sex, living address, email address, phone number, primary insurance name, primary insurance type, primary insurance Member ID number, primary insurance Group ID number, secondary insurance name, secondary insurance type, secondary insurance Member ID number, secondary insurance Group ID number, CPT code, and ICD code. The primary insurance may also be referred to as the main insurance or first insurance in these documents. There are two possible insurance types, Medicare and Commercial, where Commercial encompassses all insurances that are not Medicare. When a patient has both a commercial insurance and a Medicare only insurance, the Medicare insurance is the primary plan and the commercial insurance is the secondary plan. The Member ID number and the Group ID number consists of any combination of uppercase letters and numerical digits. In the returned information, the phone number should be returned as 10 digits with no dashes, parentheses, or spaces. In the returned information, the sex should be represented as either F for female or M for male. In the returned information, all of the commas should be removed from the living address. If there are multiple phone numbers listed for the patient, the returned information should provide their cell phone number. In the returned information, the date of birth should be written in MM/DD/YYYY format where the month, day, and year are represented numerically. A CPT code is a numerical five-digit code that represents medical services and procedures. If a code contains letters or symbols, it is not a CPT code. Return each CPT code as a string. If there is more than one CPT code, each code should be returned separately. An ICD code is an alphanumeric code that contains up to seven characters that represents a type of disease or health condition in a patient. If there is more than one ICD code, each code should be returned separately. For every piece of returned information, return it in a key-value pair separated by a colon where the key is the patient\'s full legal name and the value is the relevant returned information. All of the key-value pairs should then be returned as a comma separated list."
@@ -188,6 +191,18 @@ async def call_model_on_image(image_base64, user_message, processing_mode):
             delta = chunk.choices[0].delta
             if delta and hasattr(delta, "content") and delta.content:
                 response_text += delta.content
+
+    if processing_mode == "payment":
+        try:
+            data = json.loads(response_text)
+            page_array = data.get('page_array', [])
+            objects_array = data.get('objects_array', [])
+        except json.JSONDecodeError:
+            print("Failed to decode response as JSON.")
+            page_array, objects_array = [], []
+
+        # return an array of the pages with payments and an array of the JSON data instances
+        return page_array, objects_array
 
     return response_text
 
@@ -228,6 +243,86 @@ async def summarize_pages(partials):
         merged.update(pages)
     # returns a single, flat array of numbers that are sorted in ascending order
     return sorted(merged)
+
+
+
+# summarize answers function that batches the partial answers for batched calls to AI model
+# returns a list of JSON data instances
+# change token limit from 6000 to 12000
+async def summarize_matches(partials, batch_token_limit=12000):
+    """Aggregate partial answers into a single list of JSON objects by batching."""
+
+    def count_tokens(text):
+        try:
+            enc = tiktoken.encoding_for_model(bp.model_name)
+            return len(enc.encode(text))
+        except Exception:
+            return len(text.split())  # Fallback: approx 1 token per word
+
+    match_schema_file = bp.match_schema
+
+    summary_prompt = "This is an array of JSON data instances that represents either an Explanation of Benefits (EOB) or a Payment. Match the data instances together by pairing an EOB instance with a Payment instance. The instances match when the Amount Paid property of an EOB instance is equal to the Payment Monetary Value property of a Payment instance. Format each match as a new JSON data instance using the attached EOB Payment Match JSON Schema. Return an array of all Match data instances or an empty array if there are no Match data instances found. Format output as raw JSON only. Do not wrap the response in markdown backticks."
+    
+    # Chunk partials to respect token limit per batch
+    batches = []
+    current_batch = []
+    current_tokens = 0
+
+    for part in partials:
+        part_str = json.dumps(part)
+        tokens = count_tokens(part_str)
+        if current_tokens + tokens > batch_token_limit and current_batch:
+            batches.append(current_batch)
+            current_batch = [part_str]
+            current_tokens = tokens
+        else:
+            current_batch.append(part_str)
+            current_tokens += tokens
+
+
+    if current_batch:
+        batches.append(current_batch)
+
+    all_json_objects = []
+
+    for batch in batches:
+        partials_connected = "\n".join(batch)
+        all_messages = [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {
+                "role": "user",
+                "content": [
+                    {"text": partials_connected, "type": "text"},
+                    {"text": summary_prompt, "type": "text"},
+                    {"type": "text", "text": json.dumps(match_schema_file)},
+                ]
+            }
+        ]
+
+        chat_coroutine = await bp.openai_client.chat.completions.create(
+            model=bp.model_name,
+            messages=all_messages,
+            stream=True,
+            temperature=0.5,
+        )
+
+        response_text = ""
+        async for chunk in chat_coroutine:
+            if chunk and chunk.choices:
+                delta = chunk.choices[0].delta
+                if delta and hasattr(delta, "content") and delta.content:
+                    response_text += delta.content
+
+        try:
+            parsed_batch = json.loads(response_text)
+            if isinstance(parsed_batch, list):
+                all_json_objects.extend(parsed_batch)
+            else:
+                raise ValueError("Expected a list of JSON objects")
+        except Exception as e:
+            raise RuntimeError(f"Failed to parse model output as JSON: {str(e)}\nRaw response: {response_text}")
+
+    return all_json_objects
 
 
 
@@ -415,6 +510,21 @@ def validate_patient_fields(patients):
         annotated.append(entry)
     return annotated
 
+# helper function to validate payment fields returned from summarize_answers
+# for payment processing mode
+# YUBI: write this function to validate payment fields later
+# TODO
+def validate_payment_fields(payments):
+    # set everything to valid by default
+    annotated = []
+    for payment in payments:
+        entry = {}
+        for key, value in payment.items():
+            valid = True
+            entry[key] = {"value": value, "valid": valid}
+        annotated.append(entry)
+    return annotated
+
 # Updated code to handle PDF processing in parallel
 # YUBI: double check this
 @bp.route('/process_pdf', methods=['POST'])
@@ -485,8 +595,15 @@ async def process_pdf():
             img_base64 = await image_to_base64(merged_image)
 
             try:
-                result = await asyncio.wait_for(call_model_on_image(img_base64, user_message, processing_mode), timeout=90)
-                return result
+                # Call the AI model with a timeout to avoid hanging
+                # EDIT HERE: enable parameters to be passed to this function
+                # YUBI: the message to call_model_on_image should differ based on processing mode
+                if processing_mode == "payment":
+                    page_array, objects_array = await asyncio.wait_for(call_model_on_image(img_base64, user_message, processing_mode), timeout=90)
+                    return page_array, objects_array
+                else:
+                    result = await asyncio.wait_for(call_model_on_image(img_base64, user_message, processing_mode), timeout=90)
+                    return result
             except asyncio.TimeoutError:
                 # Raise an error if processing times out for this batch
                 raise RuntimeError(f"Timeout processing pages {start_idx}-{start_idx + batch_size - 1}")
@@ -498,10 +615,19 @@ async def process_pdf():
 
     partial_answers = []
     try:
-        # Run all batch tasks concurrently (limited by semaphore)
-        batch_results = await asyncio.gather(*tasks)
-        # Filter out any None results (empty batches)
-        partial_answers = [r for r in batch_results if r is not None]
+        if processing_mode == "payment":
+            # Run all batch tasks concurrently (limited by semaphore)
+            batch_results = await asyncio.gather(*tasks)
+            partial_pages = [r[0] for r in batch_results if r is not None]
+            partial_objects = [r[1] for r in batch_results if r is not None]
+
+            # YUBI: DEBUGGING by returning the partial objects and partial pages
+            # return jsonify({"payments": partial_objects, "pages": partial_pages}), 200
+        else:
+            # Run all batch tasks concurrently (limited by semaphore)
+            batch_results = await asyncio.gather(*tasks)
+            # Filter out any None results (empty batches)
+            partial_answers = [r for r in batch_results if r is not None]
     except RuntimeError as e:
         # Return 504 Gateway Timeout if any batch timed out
         return jsonify({"error": str(e)}), 504
@@ -514,21 +640,27 @@ async def process_pdf():
     if processing_mode == "payment":
         # have a different summarizing process for payment processing mode using partial_pages and partial_objects
         try:
-            # parse the json responses from the model into an array of page numbers
-            parsed_page_arrays = []
-            for batch_result in partial_answers:
-                try:
-                    pages = json.loads(batch_result)
-                    if isinstance(pages, list):
-                        # Convert to int if needed (in case model returns strings)
-                        pages = [int(p) for p in pages if str(p).isdigit()]
-                        parsed_page_arrays.append(pages)
-                except json.JSONDecodeError:
-                    continue  # skip any malformed batch result
-            all_pages = await summarize_pages(parsed_page_arrays)
+            all_pages = await summarize_pages(partial_pages)
         except Exception as e:
             return jsonify({"error": f"Failed during summarization of pages: {str(e)}"}), 500
-                
+        
+        try:
+            all_matches = await summarize_matches(partial_objects)
+        except Exception as e:
+            return jsonify({"error": f"Failed during summarization of pages: {str(e)}"}), 500
+        
+        matches_json = all_matches
+        
+        '''
+        # Parse the final aggregated model output as JSON
+        try:
+            # all_matches is already a list of json objects so you don't need to parse it
+            matches_json = json.loads(all_matches)
+        except json.JSONDecodeError as e:
+            # Return 500 error with raw output for debugging if JSON parsing fails
+            return jsonify({"error": f"Failed to parse model matches output as JSON: {str(e)}", "raw_output": all_matches}), 500
+        '''
+
     else:  
         try:
             summarized_answer = await summarize_answers(partial_answers, processing_mode)
@@ -550,8 +682,17 @@ async def process_pdf():
     # Validate the parsed data and annotate invalid fields
 
     if processing_mode == "payment":
-        # skip validation step for now
-        return jsonify({"pages": all_pages}), 200
+        try:
+            # YUBI: create a new function to validate payment fields
+            annotated_payments = validate_payment_fields(matches_json)
+        except Exception as e:
+            current_app.logger.error("Validation failed: %s", e)
+            return {"error": "Validation error", "details": str(e)}, 500
+
+        # YUBI: EDIT json to ensure that the key is "payments" instead of "patients"
+        # return two results to front end, one is annotated_payments and the other is all_pages formatted into a string
+        # YUBI: does this work? what does 200 mean?
+        return jsonify({"payments": annotated_payments, "pages": all_pages}), 200
     else:
         # default processing mode is billing
         try:
