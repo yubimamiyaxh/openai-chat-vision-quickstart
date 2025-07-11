@@ -18,7 +18,7 @@
     "Payment Page Number": {
       "type": "integer"
     },
-    "Credit Card Number": {
+    "Card Number": {
         "type": "number"
     },
     "CVV Code": {

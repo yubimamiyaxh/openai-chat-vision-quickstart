@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Virtual Credit Card",
+  "title": "Virtual Card",
   "type": "object",
   "properties": {
     "Payer Name": {
@@ -12,7 +12,7 @@
     "Monetary Card Value": {
       "type": "number"
     },
-    "Credit Card Number": {
+    "Card Number": {
       "type": "number"
     },
     "CVV Code": {
@@ -25,5 +25,5 @@
       "type": "integer"
     }
 },
-  "required": ["Payer Name", "Receiver Name", "Monetary Card Value", "Credit Card Number", "CVV Code", "Expiration Date", "Page Number"]
+  "required": ["Payer Name", "Receiver Name", "Monetary Card Value", "Card Number", "CVV Code", "Expiration Date", "Page Number"]
 }
