@@ -109,7 +109,7 @@ async def index():
 async def convert_pdf_page_to_image(page):
     # YUBI: debugging statement, want to change back alter
     # updated dpi from 100 to 200 for payment to see if it improves accuracy
-    pix = page.get_pixmap(dpi=150)
+    pix = page.get_pixmap(dpi=100)
     img_bytes = pix.tobytes("png")
     return Image.open(BytesIO(img_bytes))
 
@@ -409,7 +409,7 @@ async def process_pdf():
     # Define the batch size (number of PDF pages processed together in one batch)
     # YUBI: debugging, I decrease the batch size to 1 from 2
     # COME BACK TO THIS AND CHANGE IT LATER
-    batch_size = 1
+    batch_size = 2
     num_pages = len(doc)  
 
     # Set maximum number of concurrent batches allowed to avoid overloading downstream resources
