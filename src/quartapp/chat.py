@@ -139,7 +139,7 @@ async def index():
 async def convert_pdf_page_to_image(page):
     # YUBI: debugging statement, want to change back alter
     # updated dpi from 100 to 200 for payment to see if it improves accuracy
-    pix = page.get_pixmap(dpi=100)
+    pix = page.get_pixmap(dpi=200)
     img_bytes = pix.tobytes("png")
     return Image.open(BytesIO(img_bytes))
 
@@ -157,7 +157,7 @@ async def call_model_on_image(image_base64, user_message, processing_mode):
     total_pg_count = 2000
 
     if processing_mode == "payment":
-        section_prompt += f"The file is a series of scanned letters that contains Explanation of Benefits (EOB) and associated Payments for medical services. The EOB is from a medical patient\'s health insurance company and analyzes their medical costs in a chart. For every EOB, extract the full name of the patient, the amount of money paid by the health insurance company (Amount Paid), and the name of the health insurance company. The Amount Paid is written in the most bottom-right entry of the EOB chart. There are 2 types of payment: Check and Virtual Card. A scanned check typically includes: a printed check number in the top right corner, a payor name in the upper left corner, a payment amount written in numeric form and spelled out in words, a signature line on the bottom right, and a long sequence of numbers printed in MICR format along the bottom. A virtual card page typically includes: a card company name such as Mastercard, a 16-digit card number, a CVV or CVV2 code, an expiration date written in MM/YY format, and a total payment Amount shown in dollar format. For every payment, extract the payer name, receiver name, the amount of money of the payment (Monetary Value), payment type, and page number it is on. The page number is written as \'Page # of {total_pg_count}\' on every page, where # represents the page number. For every check, extract the check number. For every virtual card, extract the card number, CVV or CVV2 code, and expiration date. Represent the extracted information as one of the attached JSON schemas based on whether it is an EOB or Payment. Return two arrays in a JSON object with the following keys: page_array and objects_array. page_array is an array of all the page numbers containing a check or virtual card payment. objects_array is an array of all JSON EOB and Payment data instances found. Format each array and your full response as raw JSON only. Do not include any explanation or commentary. Do not wrap the response in markdown backticks."
+        section_prompt += f"The file is a series of scanned letters that contains Explanation of Benefits (EOB) and associated Payments for medical services. The EOB is from a medical patient\'s health insurance company and analyzes their medical costs in a chart. For every EOB, extract the full name of the patient, the amount of money paid by the health insurance company (Amount Paid), and the name of the health insurance company. The Amount Paid is written in the most bottom-right entry of the EOB chart. There are 2 types of payment: Check and Virtual Card. A scanned check typically includes: a printed check number in the top right corner, a payor name in the upper left corner, a payment amount written in numeric form and spelled out in words, a signature line on the bottom right, and a long sequence of numbers printed in MICR format along the bottom. A virtual card page typically includes a 16-digit card number, a CVV or CVV2 code, and an expiration date written in MM/YY format grouped together inside a visual box labeled \'Virtual Card\'. The card may appear alongside the heading \'Mastercard Express ClaimsCard\' and a payment Amount shown in dollar format. For every payment, extract the payer name, receiver name, the amount of money of the payment (Monetary Value), payment type, and page number it is on. The page number is written as \'Page # of {total_pg_count}\' on every page, where # represents the page number. Represent the extracted information as one of the attached JSON schemas based on whether it is an EOB or Payment. Return two arrays in a JSON object with the following keys: page_array and objects_array. page_array is an array of all the page numbers containing a check or virtual card payment. objects_array is an array of all JSON EOB and Payment data instances found. Format each array and your full response as raw JSON only. Do not include any explanation or commentary. Do not wrap the response in markdown backticks."
         user_content.append({"type": "text", "text": json.dumps(bp.payment_schema)})
         user_content.append({"type": "text", "text": json.dumps(bp.EOB_schema)})
     else:
@@ -548,7 +548,7 @@ async def process_pdf():
     # Define the batch size (number of PDF pages processed together in one batch)
     # YUBI: debugging, I decrease the batch size to 1 from 2
     # COME BACK TO THIS AND CHANGE IT LATER
-    batch_size = 2
+    batch_size = 1
     num_pages = len(doc)  
 
     # Set maximum number of concurrent batches allowed to avoid overloading downstream resources
