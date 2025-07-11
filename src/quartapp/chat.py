@@ -94,36 +94,6 @@ async def configure_openai():
     except Exception as e:
         current_app.logger.error("Failed to load patient schema: %s", e)
         bp.patient_schema = {}  # Fallback or raise if critical
-    
-    # load EOB schema json template from data folder
-    file_path = os.path.join(os.path.dirname(__file__), 'data', 'EOB_schema.json')
-    try:
-        with open(file_path, 'r') as f:
-            bp.EOB_schema = json.load(f)
-        current_app.logger.info("Loaded EOB schema from %s", file_path)
-    except Exception as e:
-        current_app.logger.error("Failed to load EOB schema: %s", e)
-        bp.EOB_schema = {}  # Fallback or raise if critical
-    
-    # load payment schema json template from data folder
-    file_path = os.path.join(os.path.dirname(__file__), 'data', 'payment_schema.json')
-    try:
-        with open(file_path, 'r') as f:
-            bp.payment_schema = json.load(f)
-        current_app.logger.info("Loaded payment schema from %s", file_path)
-    except Exception as e:
-        current_app.logger.error("Failed to load payment schema: %s", e)
-        bp.payment_schema = {}  # Fallback or raise if critical
-    
-    # load match schema json template from data folder
-    file_path = os.path.join(os.path.dirname(__file__), 'data', 'match_schema.json')
-    try:
-        with open(file_path, 'r') as f:
-            bp.match_schema = json.load(f)
-        current_app.logger.info("Loaded match schema from %s", file_path)
-    except Exception as e:
-        current_app.logger.error("Failed to load match schema: %s", e)
-        bp.match_schema = {}  # Fallback or raise if critical
 
 
 @bp.after_app_serving
