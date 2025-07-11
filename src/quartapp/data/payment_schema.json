@@ -3,33 +3,15 @@
   "title": "Payment",
   "type": "object",
   "properties": {
-    "Payer Name": {
-      "type": "string"
-    },
-    "Receiver Name": {
-      "type": "string"
-    },
-    "Payment Monetary Value": {
-      "type": "number"
-    },
-    "Payment Type": {
-      "type": "string"
-    },
-    "Payment Page Number": {
-      "type": "integer"
-    },
-    "Card Number": {
-        "type": "number"
-    },
-    "CVV Code": {
-        "type": "integer"
-    },
-    "Expiration Date": {
-        "type": "string"
-    },
-    "Check Number": {
-        "type": "number"
-    }
+    "Payer Name": {"type": "string"},
+    "Receiver Name": {"type": "string"},
+    "Payment Monetary Value": {"type": "number"},
+    "Payment Type": {"type": "string"},
+    "Payment Page Number": {"type": "integer"},
+    "Card Number": {"type": "number"},
+    "CVV Code": {"type": "integer"},
+    "Expiration Date": {"type": "string"},
+    "Check Number": {"type": "number"}
 },
   "required": ["Payer Name", "Receiver Name", "Payment Monetary Value", "Payment Type", "Payment Page Number"]
 }

@@ -3,36 +3,16 @@
   "title": "EOB Payment Match",
   "type": "object",
   "properties": {
-    "Payer Name": {
-      "type": "string"
-    },
-    "Receiver Name": {
-      "type": "string"
-    },
-    "Patient Name": {
-      "type": "string"
-    },
-    "Amount Paid": {
-      "type": "number"
-    },
-    "Payment Type": {
-      "type": "string"
-    },
-    "Payment Page Number": {
-      "type": "integer"
-    },
-    "Card Number": {
-        "type": "number"
-    },
-    "CVV Code": {
-        "type": "integer"
-    },
-    "Expiration Date": {
-        "type": "string"
-    },
-    "Check Number": {
-        "type": "number"
-    }
-},
+    "Payer Name": {"type": "string"},
+    "Receiver Name": {"type": "string"},
+    "Patient Name": {"type": "string"},
+    "Amount Paid": {"type": "number"},
+    "Payment Type": {"type": "string"},
+    "Payment Page Number": {"type": "integer"},
+    "Card Number": {"type": "number"},
+    "CVV Code": {"type": "integer"},
+    "Expiration Date": {"type": "string"},
+    "Check Number": {"type": "number"}
+  },
   "required": ["Payer Name", "Receiver Name", "Patient Name", "Amount Paid", "Payment Type", "Payment Page Number"]
 }
