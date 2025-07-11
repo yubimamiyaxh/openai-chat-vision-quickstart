@@ -12,7 +12,7 @@
     "Patient Name": {
       "type": "string"
     },
-    "Allowed Billable Amount": {
+    "Amount Paid": {
       "type": "number"
     },
     "Payment Type": {
@@ -34,5 +34,5 @@
         "type": "number"
     }
 },
-  "required": ["Payer Name", "Receiver Name", "Patient Name", "Allowed Billable Amount", "Payment Type", "Payment Page Number"]
+  "required": ["Payer Name", "Receiver Name", "Patient Name", "Amount Paid", "Payment Type", "Payment Page Number"]
 }
