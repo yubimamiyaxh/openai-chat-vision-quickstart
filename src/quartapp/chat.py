@@ -10,6 +10,7 @@ from quart import Blueprint, request, jsonify
 import fitz  # PyMuPDF
 from PIL import Image
 from PIL import ImageOps
+from PIL import ImageEnhance
 from io import BytesIO
 import base64
 import re
@@ -143,7 +144,14 @@ async def convert_pdf_page_to_image(page):
     # updated dpi from 100 to 200 for payment to see if it improves accuracy
     pix = page.get_pixmap(dpi=200)
     img_bytes = pix.tobytes("png")
-    return Image.open(BytesIO(img_bytes))
+
+    pil_image = Image.open(BytesIO(img_bytes))
+
+    # Enhance contrast (factor >1.0 increases contrast, <1.0 decreases it)
+    enhancer = ImageEnhance.Contrast(pil_image)
+    enhanced_image = enhancer.enhance(2.0)  # 2.0 is a strong but common enhancement level
+
+    return enhanced_image
 
 # Convert a PIL image to a base64 string.
 async def image_to_base64(img: Image.Image):
@@ -161,7 +169,7 @@ async def call_model_on_image(image_base64, user_message, processing_mode):
 
 
     if processing_mode == "payment":
-        section_prompt += f"This image is a section of a scanned document that may contain Explanation of Benefits (EOB) or payments for medical services. An EOB is titled \'Explanation of Benefits\' and includes a chart listing medical costs. The amount of money paid by the health insurance company (Amount Paid) is written in the most bottom-right entry of the EOB chart. Represent an EOB as a JSON object that contains the following fields: Patient Name (string) and Amount Paid (number). There are 2 types of Payment: Check and Virtual Card. A check appears as a wide, horizontally-oriented rectangular box enclosing a printed check number in the top right corner, a payer name in the upper left corner, a payment amount written in numeric form and spelled out in words, a signature line on the bottom right, and a long sequence of numbers printed in MICR format along the bottom. It is not a check if the rectangular box encloses a dense table. A virtual card typically includes a 16-digit card number, a CVV/CVV2 code, an expiration date written in MM/YY format, and a credit card company logo all grouped together inside an outlined rectangle with rounded corners. The card may appear alongside the text \'Mastercard Express ClaimsCard\' or \'Virtual Card\'. The card is displayed next to a payment Amount shown in dollar format. It is not a card if there are no numbers enclosed by the outlined rectangle or if the rectangle is near a \'U.S. Postage Paid\' stamp. Otherwise, if it looks similar to a payment, consider it a payment. For every payment in the document, extract the page number it is on. The page number is written as \'Page # of {total_pg_count}\' on every page, where # represents the page number. Represent a Payment as a JSON object that contains the following fields: Payer Name (string), Payee Name (string), Amount Paid (number), Payment Type (string), Payment Page Number (integer), Card Number (number), CVV Code (number), Expiration Date (string), and Check Number (number). Missing fields should be 'null'. Return two arrays in a JSON object with the following keys: page_array and objects_array. page_array is an array of all the page numbers containing a Payment. objects_array is an array of all EOB and Payment JSON objects found. Format each array and your full response as raw JSON only. Empty arrays are allowed. Output raw JSON only; no extra text or formatting."
+        section_prompt += f"This image is a section of a scanned document that may contain Explanation of Benefits (EOB) or payments for medical services. An EOB is titled \'Explanation of Benefits\' and includes a table of medical costs. The amount of money paid by the health insurance company (Amount Paid) is written in the bottom-right entry of the EOB table. Represent an EOB as a JSON object that contains the following fields: Patient Name (string) and Amount Paid (number). There are 2 types of Payment: Check and Virtual Card. A check appears as a bordered, rectangular area enclosing a printed check number, a \'Pay to the Order of\' line with the payee name, a payment amount written in both numbers and words, a signature line, and a MICR number sequence. It is not a check if the rectangular area encloses a dense table. A virtual card appears as an outlined rectangle with rounded corners enclosing a 16-digit card number, a CVV/CVV2 code, an expiration date written in MM/YY format, and a credit card company logo. The card may appear alongside the text \'Mastercard Express ClaimsCard\' or \'Virtual Card\'. The card is displayed next to a payment Amount shown in dollar format. It is not a card if there are no numbers enclosed by the outlined rectangle or if the rectangle is near a \'U.S. Postage Paid\' stamp. Otherwise, if it looks similar to a payment, it is a payment. For every payment in the document, extract the page number it is on. The page number is written as \'Page # of {total_pg_count}\' on every page, where # represents the page number. Represent a Payment as a JSON object that contains the following fields: Payer Name (string), Payee Name (string), Amount Paid (number), Payment Type (string), Payment Page Number (integer), Card Number (number), CVV Code (number), Expiration Date (string), and Check Number (number). Missing fields should be 'null'. Return two arrays in a JSON object with the following keys: page_array and objects_array. page_array is an array of all the page numbers containing a Payment. objects_array is an array of all EOB and Payment JSON objects found. Format each array and your full response as raw JSON only with no extra text or formatting. Empty arrays are allowed."
         # user_content.append({"type": "text", "text": json.dumps(bp.payment_schema)})
         # user_content.append({"type": "text", "text": json.dumps(bp.EOB_schema)})
     else:
