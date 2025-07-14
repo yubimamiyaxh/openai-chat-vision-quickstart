@@ -1,4 +1,6 @@
 # This is a new chat.py file that uses asyncio.gather to parallelize the processing of PDF pages.
+# Has slimmer prompts to decrease token usage while maintaining accuracy
+# Only returns page numbers of payments for payment processing mode
 
 import json
 import os
@@ -123,23 +125,37 @@ async def image_to_base64(img: Image.Image):
 async def call_model_on_image(image_base64, user_message, processing_mode):
     section_prompt = ""
     user_content = []
+    detail_level = "auto"  # Default detail level for images
 
     if processing_mode == "payment":
         # YUBI: I am setting this right now, but we want this to be dynamic based on the number of pages in the PDF
         total_pg_count = 2000
-        section_prompt += f"This image is a section of a scanned PDF document that may contain payments for medical services. There are 2 types of Payment: Check and Virtual Card. A check appears as a wide, horizontally-oriented, black rectangular box outline typically enclosing a printed check number in the top right corner, a payor name in the upper left corner, a payment amount written in numeric form and spelled out in words, a signature line on the bottom right, and a long sequence of numbers printed in MICR format along the bottom. It is not a check if the rectangular outline encloses a chart or table. A virtual card typically includes a 16-digit card number, a CVV or CVV2 code, an expiration date written in MM/YY format, and a credit card company logo all grouped together inside an outlined rectangle with rounded corners. The card may appear alongside the text \'Mastercard Express ClaimsCard\' or \'Virtual Card\'. The card is displayed next to a payment Amount shown in dollar format. It is not a card if there are no numbers inside the outlined rectangle and the rectangle is near a \'U.S. Postage Paid\' stamp. Otherwise, if it looks similar to a payment, consider it a payment. For every payment in the document, extract the page number it is on. The page number is written as \'Page # of {total_pg_count}\' on every page, where # represents the page number. Return an array of all the page numbers containing a payment. If there are no payments found, return an empty array. Format your full response as raw JSON only. Do not include any explanation or commentary. Do not wrap the response in markdown backticks."
+        section_prompt += (f"This image is a section of a scanned PDF document that may contain payments for medical services. "
+                           "There are 2 types of Payment: Check and Virtual Card. A check appears as a wide, horizontally-oriented, black rectangular box outline typically enclosing a printed check number in the top right corner, a payor name in the upper left corner, a payment amount written in numeric form and spelled out in words, a signature line on the bottom right, and a long sequence of numbers printed in MICR format along the bottom."
+                            "It is not a check if the rectangular outline encloses a chart or table. A virtual card typically includes a 16-digit card number, a CVV or CVV2 code, an expiration date written in MM/YY format, and a credit card company logo all grouped together inside an outlined rectangle with rounded corners."
+                             "The card may appear alongside the text \'Mastercard Express ClaimsCard\' or \'Virtual Card\'. The card is displayed next to a payment Amount shown in dollar format. It is not a card if there are no numbers inside the outlined rectangle and the rectangle is near a \'U.S. Postage Paid\' stamp."
+                              "Otherwise, if it looks similar to a payment, consider it a payment. For every payment in the document, extract the page number it is on. The page number is written as \'Page # of {total_pg_count}\' on every page, where # represents the page number."
+                              "Return an array of all the page numbers containing a payment. If there are no payments found, return an empty array. Format your full response as raw JSON only. Do not include any explanation or commentary. Do not wrap the response in markdown backticks.")
+        # low resolution may actually improve ability to determine if something is a check
+        detail_level = "low"
     else:
         # default processing mode is billing
         # section_prompt += "The uploaded file is scanned medical documents of one or more medical patients. Identify the following information for each patient if it is in the documents: their full legal name, date of birth, sex, living address, email address, phone number, primary insurance name, primary insurance type, primary insurance Member ID number, primary insurance Group ID number, secondary insurance name, secondary insurance type, secondary insurance Member ID number, secondary insurance Group ID number, CPT code, and ICD code. The primary insurance may also be referred to as the main insurance or first insurance in these documents. There are two possible insurance types, Medicare and Commercial, where Commercial encompassses all insurances that are not Medicare. When a patient has both a commercial insurance and a Medicare only insurance, the Medicare insurance is the primary plan and the commercial insurance is the secondary plan. The Member ID number and the Group ID number consists of any combination of uppercase letters and numerical digits. In the returned information, the phone number should be returned as 10 digits with no dashes, parentheses, or spaces. In the returned information, the sex should be represented as either F for female or M for male. In the returned information, all of the commas should be removed from the living address. If there are multiple phone numbers listed for the patient, the returned information should provide their cell phone number. In the returned information, the date of birth should be written in MM/DD/YYYY format where the month, day, and year are represented numerically. A CPT code is a numerical five-digit code that represents medical services and procedures. If a code contains letters or symbols, it is not a CPT code. Return each CPT code as a string. If there is more than one CPT code, each code should be returned separately. An ICD code is an alphanumeric code that contains up to seven characters that represents a type of disease or health condition in a patient. If there is more than one ICD code, each code should be returned separately. For every piece of returned information, return it in a key-value pair separated by a colon where the key is the patient\'s full legal name and the value is the relevant returned information. All of the key-value pairs should then be returned as a comma separated list."
         # YUBI: testing simpler prompt
-        section_prompt += "The file is scanned documents of medical patients. Identify the following information for each patient if it is present: their full name, date of birth, sex, living address, email address, phone number, primary insurance name, primary insurance type, primary insurance Member ID number, primary insurance Group ID number, secondary insurance name, secondary insurance type, secondary insurance Member ID number, secondary insurance Group ID number, CPT code, and ICD code. There are two possible insurance types, Medicare and Commercial, where Commercial encompassses all insurances that are not Medicare. When a patient has both a commercial and a Medicare insurance, the Medicare insurance is the primary one. A CPT code is a numerical five-digit code that represents medical services and procedures. An ICD code is an alphanumeric code that contains up to seven characters that represents a type of disease or health condition in a patient. For every piece of returned information, return it in a key-value pair where the key is the patient\'s full name and the value is the relevant returned information. Every key and value should be a string. Format the date of birth in MM/DD/YYYY format. Format the values clearly and consistently. Please avoid including commas in the returned values. Return all of the key-value pairs as a comma separated list."
+        section_prompt += (
+        "The file contains scanned documents of medical patients. Extract the following for each patient if present: full name, date of birth, sex, address, email, phone, primary and secondary insurance name, type, member ID, group ID, CPT code, and ICD code. "
+        "Insurance type is either Medicare or Commercial (which includes all others). If both are present, Medicare is the primary. "
+        "Format each field as a separate key-value pair: the key is the patient’s full name, the value is 'Field Name: Field Value'. Repeat the patient name for each field. "
+        "Format dates as MM/DD/YYYY. Do not include commas within values. Return all pairs as a single comma-separated list with no extra formatting or explanation. Omit any fields not found."
+        )
+        detail_level = "auto"
 
     # This sends all messages, so API request may exceed token limits
     all_messages = [{"role": "system", "content": "You are a helpful assistant."}]
     if image_base64:
         user_content.append({"text": user_message, "type": "text"})
         user_content.append({"text": section_prompt, "type": "text"})
-        user_content.append({"image_url": {"url": f"data:image/png;base64,{image_base64}", "detail": "auto"}, "type": "image_url"})
+        user_content.append({"image_url": {"url": f"data:image/png;base64,{image_base64}", "detail": detail_level}, "type": "image_url"})
         all_messages.append({"role": "user", "content": user_content})
 
     # YUBI: I'm going to use same AI model for both processing modes for now
@@ -218,8 +234,17 @@ async def summarize_answers(partials, processing_mode, batch_token_limit=6000):
         summary_prompt = "add prompt here"
     else:
         # default processing mode is billing
-        schema_file = bp.patient_schema
-        summary_prompt = "This is a comma separated list of key-value pairs containing information on medical patients. Every key is a patient\'s full name and the associated value is one of the following: their full name, date of birth, sex, living address, email address, phone number, primary insurance name, primary insurance type, primary insurance Member ID number, primary insurance Group ID number, secondary insurance name, secondary insurance type, secondary insurance Member ID number, secondary insurance Group ID number, CPT code, or ICD code. There may be similar keys that can be reasonably assumed to belong to the same patient because the key is the patient\'s name. For example, some keys may include a middle initial, middle name, switched order of first and last name, or spelled with different capitalization. Group the key-value pairs together in sets of similar keys and rename every key in each set with the same, longest full name that is known in each set. Then, use the aggregated data from these groupings to create an array of JSON data instances, where each data instance represents a unique patient. The JSON schema is attached to this message. There can be more than one CPT code or ICD code for a patient. For all other properties, if there are multiple, conflicting values for the same property in a JSON data instance, select a single value that is the most probable option. If there are any missing values, they should be returned as \"null\" in the JSON data instance. Return an array of all unique patients. Format output as raw JSON only. Do not wrap the response in markdown backticks."
+        # schema_file = bp.patient_schema
+        # YUBI: testing simpler prompt
+        summary_prompt = (
+            "This is a comma-separated list of key-value pairs about medical patients. "
+            "Each key is a patient's full name; each value is a labeled field (e.g., 'Date of Birth: 01/01/1980'). "
+            "Some names may refer to the same person despite differences (e.g., middle names, initials, or capitalization). "
+            "Group similar names and use the longest full name in each group. "
+            "Aggregate fields for each patient into a single JSON object. Each patient object must contain the following fields: Patient Name, Date of Birth, Sex, Address, Email, Phone, Primary Insurance Name, Primary Insurance Type, Primary Insurance Member ID, Primary Insurance Group ID, Secondary Insurance Name, Secondary Insurance Type, Secondary Insurance Member ID, Secondary Insurance Group ID, CPT Codes, and ICD Codes. All fields are strings, except CPT Codes and ICD Codes, which are arrays of strings that include all CPT and ICD codes found."
+            "For other fields with conflicting values, choose the most likely one. "
+            "Missing fields should be 'null'. Return an array of patient JSON objects. Output raw JSON only; no extra text or formatting."
+        )
 
     # Chunk partials to respect token limit per batch
     batches = []
@@ -250,7 +275,7 @@ async def summarize_answers(partials, processing_mode, batch_token_limit=6000):
                 "content": [
                     {"text": partials_connected, "type": "text"},
                     {"text": summary_prompt, "type": "text"},
-                    {"type": "text", "text": json.dumps(schema_file)},
+                    # {"type": "text", "text": json.dumps(schema_file)},
                 ]
             }
         ]
@@ -303,14 +328,18 @@ async def connect_summaries(all_json_objects, processing_mode):
         final_prompt += "add prompt here"
     else:
         # default processing mode is billing
-        final_prompt += "This is a list of raw JSON data instances that each represent a patient based on the attached JSON schema. Review the list and combine any data instances that refer to the same patient. Data instances refer to the same patient if they have a similar Full Name. For example, full names are similar if they differ by a middle initial, middle name, switched order of first and last name, or spelled with different capitalization. There can be more than one CPT code or ICD code for a patient. For all other properties, if there are multiple, conflicting values for the same property in a JSON data instance, select a single value that is the most probable option. If there are any missing values, they should be returned as \"null\" in the JSON data instance. Return an array of JSON data instances where each data instance represents a unique patient. Format output as raw JSON only. Do not wrap the response in markdown backticks."
+        # YUBI: testing simpler prompt
+        final_prompt += ("This is a list of JSON data instances that each represent a patient. Review the list and combine any data instances that refer to the same patient. Data instances refer to the same patient if they have a similar Full Name (e.g., middle names, initials, or capitalization). "
+            "Aggregate fields for each patient into a single JSON object. Each patient object must contain the following fields: Patient Name, Date of Birth, Sex, Address, Email, Phone, Primary Insurance Name, Primary Insurance Type, Primary Insurance Member ID, Primary Insurance Group ID, Secondary Insurance Name, Secondary Insurance Type, Secondary Insurance Member ID, Secondary Insurance Group ID, CPT Codes, and ICD Codes. All fields are strings, except CPT Codes and ICD Codes, which are arrays of strings that include all CPT and ICD codes found."
+            "For other fields with conflicting values, choose the most likely one. "
+            "Missing fields should be 'null'. Return an array of patient JSON objects. Output raw JSON only; no extra text or formatting.")
 
     # IDK if this check is necessary
     user_content = []
     user_content.append({"text": json_input_str, "type": "text"})
     user_content.append({"text": final_prompt, "type": "text"})
     # add schema file to the user content
-    user_content.append({"type": "text", "text": json.dumps(schema_file)})
+    # user_content.append({"type": "text", "text": json.dumps(schema_file)})
     all_messages.append({"role": "user", "content": user_content})
         
 
