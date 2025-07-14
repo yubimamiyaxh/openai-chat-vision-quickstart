@@ -583,7 +583,7 @@ async def process_pdf():
     # Define the batch size (number of PDF pages processed together in one batch)
     # YUBI: debugging, I decrease the batch size to 1 from 2
     # COME BACK TO THIS AND CHANGE IT LATER
-    batch_size = 2
+    batch_size = 1
     num_pages = len(doc)  
 
     # Set maximum number of concurrent batches allowed to avoid overloading downstream resources
