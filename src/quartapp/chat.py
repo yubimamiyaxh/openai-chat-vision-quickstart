@@ -141,7 +141,7 @@ async def index():
 async def convert_pdf_page_to_image(page):
     # YUBI: debugging statement, want to change back alter
     # updated dpi from 100 to 200 for payment to see if it improves accuracy
-    pix = page.get_pixmap(dpi=100)
+    pix = page.get_pixmap(dpi=200)
     img_bytes = pix.tobytes("png")
     return Image.open(BytesIO(img_bytes))
 
