@@ -399,17 +399,6 @@ def validate_patient_fields(patients):
                 reason = None
             entry[key] = {"value": value, "valid": valid}
             
-            # YUBI: remove checks for codes right now bc they are arrays and Shuoqi said it's not as important
-            '''
-            elif key == "CPT Codes":
-                # value must be a string containing 5 numbers only
-                valid = bool(re.match(r"^\d{5}$", str(value)))
-                reason = None if valid else "Must be numeric with 5 characters"
-            elif key == "ICD Codes":
-                valid = bool(re.match(r"^[A-Z0-9]{3,7}$", str(value)))
-                reason = None if valid else "Must be alphanumeric with 3 to 7 characters"
-            '''
-            
             if not valid:
                 entry[key]["reason"] = reason
         annotated.append(entry)
