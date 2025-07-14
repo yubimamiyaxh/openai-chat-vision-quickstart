@@ -161,10 +161,9 @@ async def call_model_on_image(image_base64, user_message, processing_mode):
 
 
     if processing_mode == "payment":
-        section_prompt += f"The file is a series of scanned letters that contains Explanation of Benefits (EOB) and associated Payments for medical services. The EOB is from a medical patient\'s health insurance company and analyzes their medical costs in a chart. For every EOB, extract the full name of the patient, the amount of money paid by the health insurance company (Amount Paid), and the name of the health insurance company. The Amount Paid is written in the most bottom-right entry of the EOB chart. There are 2 types of payment: Check and Virtual Card. A scanned check typically includes: a printed check number in the top right corner, a payor name in the upper left corner, a payment amount written in numeric form and spelled out in words, a signature line on the bottom right, and a long sequence of numbers printed in MICR format along the bottom. A virtual card page typically includes a 16-digit card number, a CVV or CVV2 code, and an expiration date written in MM/YY format grouped together inside a visual box labeled \'Virtual Card\'. The card may appear alongside the heading \'Mastercard Express ClaimsCard\' and a payment Amount shown in dollar format. For every payment, extract the payer name, receiver name, the amount of money of the payment (Monetary Value), payment type, and page number it is on. The page number is written as \'Page # of {total_pg_count}\' on every page, where # represents the page number. If there are any EOB or Payment object(s) in the file, represent it as one of the attached JSON schemas based on whether it is an EOB or Payment. Return two arrays in a JSON object with the following keys: page_array and objects_array. page_array is an array of all the page numbers containing a check or virtual card payment. objects_array is an array of all JSON EOB and Payment data instances found. Format each array and your full response as raw JSON only. Empty arrays are allowed. Do not include any explanation or commentary. Do not wrap the response in markdown backticks."
-        user_content.append({"type": "text", "text": json.dumps(bp.payment_schema)})
-        user_content.append({"type": "text", "text": json.dumps(bp.EOB_schema)})
-        detail_level = "low"
+        section_prompt += f"This image is a section of a scanned document that may contain Explanation of Benefits (EOB) or payments for medical services. An EOB is titled \'Explanation of Benefits\' and includes a chart listing medical costs. The amount of money paid by the health insurance company (Amount Paid) is written in the most bottom-right entry of the EOB chart. Represent an EOB as a JSON object that contains the following fields: Patient Name (string) and Amount Paid (number). There are 2 types of Payment: Check and Virtual Card. A check appears as a wide, horizontally-oriented, black rectangular box enclosing a printed check number in the top right corner, a payer name in the upper left corner, a payment amount written in numeric form and spelled out in words, a signature line on the bottom right, and a long sequence of numbers printed in MICR format along the bottom. It is not a check if the rectangular box encloses a chart or table. A virtual card typically includes a 16-digit card number, a CVV/CVV2 code, an expiration date written in MM/YY format, and a credit card company logo all grouped together inside an outlined rectangle with rounded corners. The card may appear alongside the text \'Mastercard Express ClaimsCard\' or \'Virtual Card\'. The card is displayed next to a payment Amount shown in dollar format. It is not a card if there are no numbers enclosed by the outlined rectangle or if the rectangle is near a \'U.S. Postage Paid\' stamp. Otherwise, if it looks similar to a payment, consider it a payment. For every payment in the document, extract the page number it is on. The page number is written as \'Page # of {total_pg_count}\' on every page, where # represents the page number. Represent a Payment as a JSON object that contains the following fields: Payer Name, Receiver Name, Amount Paid, Payment Type, Payment Page Number, Card Number, CVV Code, Expiration Date, and Check Number. Missing fields should be 'null'. Return two arrays in a JSON object with the following keys: page_array and objects_array. page_array is an array of all the page numbers containing a Payment. objects_array is an array of all EOB and Payment JSON objects found. Format each array and your full response as raw JSON only. Empty arrays are allowed. Output raw JSON only; no extra text or formatting."
+        # user_content.append({"type": "text", "text": json.dumps(bp.payment_schema)})
+        # user_content.append({"type": "text", "text": json.dumps(bp.EOB_schema)})
     else:
         # default processing mode is billing
         # section_prompt += "The uploaded file is scanned medical documents of one or more medical patients. Identify the following information for each patient if it is in the documents: their full legal name, date of birth, sex, living address, email address, phone number, primary insurance name, primary insurance type, primary insurance Member ID number, primary insurance Group ID number, secondary insurance name, secondary insurance type, secondary insurance Member ID number, secondary insurance Group ID number, CPT code, and ICD code. The primary insurance may also be referred to as the main insurance or first insurance in these documents. There are two possible insurance types, Medicare and Commercial, where Commercial encompassses all insurances that are not Medicare. When a patient has both a commercial insurance and a Medicare only insurance, the Medicare insurance is the primary plan and the commercial insurance is the secondary plan. The Member ID number and the Group ID number consists of any combination of uppercase letters and numerical digits. In the returned information, the phone number should be returned as 10 digits with no dashes, parentheses, or spaces. In the returned information, the sex should be represented as either F for female or M for male. In the returned information, all of the commas should be removed from the living address. If there are multiple phone numbers listed for the patient, the returned information should provide their cell phone number. In the returned information, the date of birth should be written in MM/DD/YYYY format where the month, day, and year are represented numerically. A CPT code is a numerical five-digit code that represents medical services and procedures. If a code contains letters or symbols, it is not a CPT code. Return each CPT code as a string. If there is more than one CPT code, each code should be returned separately. An ICD code is an alphanumeric code that contains up to seven characters that represents a type of disease or health condition in a patient. If there is more than one ICD code, each code should be returned separately. For every piece of returned information, return it in a key-value pair separated by a colon where the key is the patient\'s full legal name and the value is the relevant returned information. All of the key-value pairs should then be returned as a comma separated list."
@@ -268,9 +267,9 @@ async def summarize_matches(partials, batch_token_limit=12000):
         except Exception:
             return len(text.split())  # Fallback: approx 1 token per word
 
-    match_schema_file = bp.match_schema
+    # match_schema_file = bp.match_schema
 
-    summary_prompt = "This is an array of JSON data instances that represents either an Explanation of Benefits (EOB) or a Payment. Match the data instances together by pairing an EOB instance with a Payment instance. The instances match when the Amount Paid property of an EOB instance is equal to the Payment Monetary Value property of a Payment instance. Format each match as a new JSON data instance using the attached EOB Payment Match JSON Schema. Return an array of all Match data instances or an empty array if there are no Match data instances found. Format output as raw JSON only. Do not wrap the response in markdown backticks."
+    summary_prompt = "This is an array of JSON objects that represents an Explanation of Benefits (EOB) or a Payment. Make all possible 1-to-1 matchings between the EOB instances and Payment instances. The instances match when the Amount Paid fields are equal between an EOB instance and Payment instance. Format each match as a JSON object that contains the following fields: Payer Name, Receiver Name, Patient Name, Amount Paid, Payment Type, Payment Page Number, Card Number, CVV Code, Expiration Date, and Check Number. Missing fields should be 'null'. Return an array of Match JSON objects or an empty array if there are no matches found. Output raw JSON only; no extra text or formatting."    
     
     # Chunk partials to respect token limit per batch
     batches = []
@@ -303,7 +302,7 @@ async def summarize_matches(partials, batch_token_limit=12000):
                 "content": [
                     {"text": partials_connected, "type": "text"},
                     {"text": summary_prompt, "type": "text"},
-                    {"type": "text", "text": json.dumps(match_schema_file)},
+                    # {"type": "text", "text": json.dumps(match_schema_file)},
                 ]
             }
         ]
@@ -512,26 +511,28 @@ def validate_patient_fields(patients):
                          "Secondary Insurance Member ID", "Secondary Insurance Group ID"}:
                 valid = bool(re.match(r"^[A-Z0-9]+$", str(value)))
                 reason = None if valid else "Must be alphanumeric with no spaces"
+            elif key == "CPT Codes":
+                # value must be an array of strings where each string is a 5-digit number and there are no more than 5 strings in the array
+                valid = isinstance(value, list) and all(
+                    isinstance(code, str) and re.match(r"^\d{5}$", code) for code in value
+                ) and len(value) <= 5
+                reason = None if valid else "Each CPT code must be a 5-digit number and there can be no more than 5 codes"
+            elif key == "ICD Codes":
+                # value must be an array of strings where each string is alphanumeric with 3 to 7 characters and there are no more than 5 strings in the array
+                valid = isinstance(value, list) and all(
+                    isinstance(code, str) and re.match(r"^[A-Z0-9]{3,7}$", code) for code in value
+                ) and len(value) <= 5
+                reason = None if valid else "Each ICD code must be alphanumeric with 3 to 7 characters and there can be no more than 5 codes"
             else:
                 valid = True
                 reason = None
             entry[key] = {"value": value, "valid": valid}
             
-            # YUBI: remove checks for codes right now bc they are arrays and Shuoqi said it's not as important
-            '''
-            elif key == "CPT Codes":
-                # value must be a string containing 5 numbers only
-                valid = bool(re.match(r"^\d{5}$", str(value)))
-                reason = None if valid else "Must be numeric with 5 characters"
-            elif key == "ICD Codes":
-                valid = bool(re.match(r"^[A-Z0-9]{3,7}$", str(value)))
-                reason = None if valid else "Must be alphanumeric with 3 to 7 characters"
-            '''
-            
             if not valid:
                 entry[key]["reason"] = reason
         annotated.append(entry)
     return annotated
+
 
 # helper function to validate payment fields returned from summarize_answers
 # for payment processing mode
