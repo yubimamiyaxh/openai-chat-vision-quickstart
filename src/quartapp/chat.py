@@ -269,8 +269,16 @@ async def summarize_matches(partials, batch_token_limit=12000):
 
     # match_schema_file = bp.match_schema
 
-    summary_prompt = "This is an array of JSON objects that represents an Explanation of Benefits (EOB) or a Payment. Make all possible 1-to-1 matchings between the EOB instances and Payment instances. The instances match when the Amount Paid fields are equal between an EOB instance and Payment instance. Format each match as a JSON object that contains the following fields: Payer Name, Payee Name, Patient Name, Amount Paid, Payment Type, Payment Page Number, Card Number, CVV Code, Expiration Date, and Check Number. Missing fields should be 'null'. Return an array of Match JSON objects or an empty array if there are no matches found. Output raw JSON only; no extra text or formatting."    
-    
+    # YUBI: testing simpler prompt    
+    summary_prompt = (
+    "This is a JSON array containing two types of objects: Explanation of Benefits (EOB) objects and Payment objects."
+    "EOB objects include the fields \'Patient Name\' and \'Amount Paid\'."
+    "Payment objects include fields such as \'Payer Name\', \'Receiver Name\', \'Amount Paid\', \'Payment Type\', and other payment-specific fields."
+    "Match each EOB object to a Payment object only if the \'Amount Paid\' values are exactly equal."
+    "Return a new array of JSON objects, each representing one matched pair, with the following fields: Payer Name, Receiver Name, Patient Name, Amount Paid, Payment Type, Payment Page Number, Card Number, CVV Code, Expiration Date, Check Number. Fields can be \'null\' if they don’t exist."
+    "If no matches are found, return an empty array. Output raw JSON only; no extra text or formatting. Do not include unmatched objects."
+    )
+
     # Chunk partials to respect token limit per batch
     batches = []
     current_batch = []
@@ -294,7 +302,9 @@ async def summarize_matches(partials, batch_token_limit=12000):
     all_json_objects = []
 
     for batch in batches:
-        partials_connected = "\n".join(batch)
+        # partials_connected = "\n".join(batch)
+        # YUBI: debugging statement, read in partials as a valid JSON array
+        partials_connected = json.dumps([json.loads(p) for p in batch])
         all_messages = [
             {"role": "system", "content": "You are a helpful assistant."},
             {
