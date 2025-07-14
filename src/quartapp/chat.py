@@ -382,6 +382,18 @@ def validate_patient_fields(patients):
                          "Secondary Insurance Member ID", "Secondary Insurance Group ID"}:
                 valid = bool(re.match(r"^[A-Z0-9]+$", str(value)))
                 reason = None if valid else "Must be alphanumeric with no spaces"
+            elif key == "CPT Codes":
+                # value must be an array of strings where each string is a 5-digit number and there are no more than 5 strings in the array
+                valid = isinstance(value, list) and all(
+                    isinstance(code, str) and re.match(r"^\d{5}$", code) for code in value
+                ) and len(value) <= 5
+                reason = None if valid else "Each CPT code must be a 5-digit number and there can be no more than 5 codes"
+            elif key == "ICD Codes":
+                # value must be an array of strings where each string is alphanumeric with 3 to 7 characters and there are no more than 5 strings in the array
+                valid = isinstance(value, list) and all(
+                    isinstance(code, str) and re.match(r"^[A-Z0-9]{3,7}$", code) for code in value
+                ) and len(value) <= 5
+                reason = None if valid else "Each ICD code must be alphanumeric with 3 to 7 characters and there can be no more than 5 codes"
             else:
                 valid = True
                 reason = None
