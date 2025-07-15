@@ -139,10 +139,9 @@ async def index():
     return await render_template("index.html")
 
 # Convert a PyMuPDF page to a PIL image.
-async def convert_pdf_page_to_image(page):
+async def convert_pdf_page_to_image(page, dpi_threshold):
     # YUBI: debugging statement, want to change back alter
-    # updated dpi from 100 to 200 for payment to see if it improves accuracy
-    pix = page.get_pixmap(dpi=200)
+    pix = page.get_pixmap(dpi=dpi_threshold)
     img_bytes = pix.tobytes("png")
 
     pil_image = Image.open(BytesIO(img_bytes))
@@ -180,8 +179,9 @@ async def call_model_on_image(image_base64, user_message, processing_mode):
         "The file contains scanned documents of medical patients. Extract the following for each patient if present: full name, date of birth, sex, address, email, phone, primary and secondary insurance name, type, member ID, group ID, CPT code, and ICD code. "
         "Insurance type is either Medicare or Commercial (which includes all others). If both are present, Medicare is the primary. "
         "Format each field as a separate key-value pair: the key is the patient’s full name, the value is 'Field Name: Field Value'. Repeat the patient name for each field. "
-        "Format dates as MM/DD/YYYY. Do not include commas within values. Return all pairs as a single comma-separated list with no extra formatting or explanation. Omit any fields not found."
+        "Format dates as MM/DD/YYYY. Do not include commas within values. Return all pairs as a single comma-separated list with no extra explanation, text, or formatting like markdown backticks. Omit any fields not found."
         )
+
 
     # This sends all messages, so API request may exceed token limits
     all_messages = [{"role": "system", "content": "You are a helpful assistant."}]
@@ -279,13 +279,14 @@ async def summarize_matches(partials, batch_token_limit=12000):
 
     # YUBI: testing simpler prompt    
     summary_prompt = (
-    "This is a JSON array containing two types of objects: Explanation of Benefits (EOB) objects and Payment objects."
-    "EOB objects include the fields \'Patient Name\' and \'Amount Paid\'."
-    "Payment objects include fields such as \'Payer Name\', \'Receiver Name\', \'Amount Paid\', \'Payment Type\', and other payment-specific fields."
-    "Match each EOB object to a Payment object only if the \'Amount Paid\' values are equal."
-    "Return a new array of JSON objects, each representing one matched pair, with the following fields: Payer Name, Payee Name, Patient Name, Amount Paid, Payment Type, Payment Page Number, Card Number, CVV Code, Expiration Date, and Check Number. Fields can be \'null\' if they do not exist."
-    "If no matches are found, return an empty array. Output raw JSON only with no extra text or formatting like markdown backticks. Do not include unmatched objects."
-    )
+            "This is a comma-separated list of key-value pairs about medical patients. "
+            "Each key is a patient's full name; each value is a labeled field (e.g., 'Date of Birth: 01/01/1980'). "
+            "Some names may refer to the same person despite differences (e.g., middle names, initials, or capitalization). "
+            "Group similar names and use the longest full name in each group. "
+            "Aggregate fields for each patient into a single JSON object. Each patient object must contain the following fields: Patient Name, Date of Birth, Sex, Address, Email, Phone, Primary Insurance Name, Primary Insurance Type, Primary Insurance Member ID, Primary Insurance Group ID, Secondary Insurance Name, Secondary Insurance Type, Secondary Insurance Member ID, Secondary Insurance Group ID, CPT Codes, and ICD Codes. All fields are strings, except CPT Codes and ICD Codes, which are arrays of strings that include all CPT and ICD codes found."
+            "For other fields with conflicting values, choose the most likely one. "
+            "Missing fields should be 'null'. Return an array of patient JSON objects. Output raw JSON only; no extra text or formatting like markdown backticks."
+        )
 
 
     # Chunk partials to respect token limit per batch
@@ -469,7 +470,8 @@ async def connect_summaries(all_json_objects, processing_mode):
         final_prompt += ("This is a list of JSON data instances that each represent a patient. Review the list and combine any data instances that refer to the same patient. Data instances refer to the same patient if they have a similar Full Name (e.g., middle names, initials, or capitalization). "
             "Aggregate fields for each patient into a single JSON object. Each patient object must contain the following fields: Patient Name, Date of Birth, Sex, Address, Email, Phone, Primary Insurance Name, Primary Insurance Type, Primary Insurance Member ID, Primary Insurance Group ID, Secondary Insurance Name, Secondary Insurance Type, Secondary Insurance Member ID, Secondary Insurance Group ID, CPT Codes, and ICD Codes. All fields are strings, except CPT Codes and ICD Codes, which are arrays of strings that include all CPT and ICD codes found."
             "For other fields with conflicting values, choose the most likely one. "
-            "Missing fields should be 'null'. Return an array of patient JSON objects. Output raw JSON only; no extra text or formatting.")
+            "Missing fields should be 'null'. Return an array of patient JSON objects. Output raw JSON only; no extra text or formatting like markdown backticks.")
+
 
     # IDK if this check is necessary
     user_content = []
@@ -596,7 +598,8 @@ async def process_pdf():
     num_pages = len(doc)  
 
     # Set maximum number of concurrent batches allowed to avoid overloading downstream resources
-    MAX_CONCURRENT_BATCHES = 4
+    # YUBI: debugging, reduce batches to 2 from 4
+    MAX_CONCURRENT_BATCHES = 2
     semaphore = asyncio.Semaphore(MAX_CONCURRENT_BATCHES)  # Controls concurrency limit
 
     # Helper function to stack multiple images vertically into one tall image
@@ -626,7 +629,18 @@ async def process_pdf():
                 subdoc.insert_pdf(doc, from_page=page_idx, to_page=page_idx)
                 page = subdoc[0]
                 # Convert PDF page to PIL image asynchronously
-                pil_image = await convert_pdf_page_to_image(page)
+
+                # adjust dpi based on processing mode
+                if processing_mode == "payment":
+                    dpi_threshold = 200  # Higher DPI for payment processing
+                else:
+                    dpi_threshold = 100  # Default DPI for billing processing
+
+                try:
+                    pil_image = await convert_pdf_page_to_image(page, dpi_threshold)
+                except Exception as e:
+                    return jsonify({"error": f"Failed to convert page {page_idx} to image: {e}"})
+                
                 images.append(pil_image)
 
             if not images:
