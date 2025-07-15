@@ -382,8 +382,8 @@ async def summarize_answers(partials, processing_mode, batch_token_limit=6000):
             "Some names may refer to the same person despite differences (e.g., middle names, initials, or capitalization). "
             "Group similar names and use the longest full name in each group. "
             "Aggregate fields for each patient into a single JSON object. Each patient object must contain the following fields: Patient Name, Date of Birth, Sex, Address, Email, Phone, Primary Insurance Name, Primary Insurance Type, Primary Insurance Member ID, Primary Insurance Group ID, Secondary Insurance Name, Secondary Insurance Type, Secondary Insurance Member ID, Secondary Insurance Group ID, CPT Codes, and ICD Codes. All fields are strings, except CPT Codes and ICD Codes, which are arrays of strings that include all CPT and ICD codes found."
-            "For other fields with conflicting values, choose the most likely one. "
-            "Missing fields should be \'null\'. Return an array of patient JSON objects. Output raw JSON only; no extra text or formatting."
+            "For other fields with conflicting values, choose the most likely one. Missing fields should be \'null\'."
+            "Return an array of patient JSON objects. Output raw JSON only. Do not include any explanations and do not wrap the response in markdown formatting such as triple backticks or \'```json\'."
         )
 
     # Chunk partials to respect token limit per batch
@@ -727,12 +727,12 @@ async def process_pdf():
         try:
             summarized_answer = await summarize_answers(partial_answers, processing_mode)
         except Exception as e:
-            return jsonify({"error": f"Failed during summarization: {str(e)}"}), 500
+            return jsonify({"error": f"Failed during summarization of partial answers: {str(e)}"}), 500
     
         try:
             final_answer = await connect_summaries(summarized_answer, processing_mode)
         except Exception as e:
-            return jsonify({"error": f"Failed during summarization: {str(e)}"}), 500
+            return jsonify({"error": f"Failed during summarization of summarized answers: {str(e)}"}), 500
 
         # Parse the final aggregated model output as JSON
         try:
