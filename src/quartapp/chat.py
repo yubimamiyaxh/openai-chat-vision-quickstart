@@ -656,28 +656,40 @@ async def process_pdf():
 
             try:
                 # Call the AI model with a timeout to avoid hanging
+                # experiment with larger timeout
                 # EDIT HERE: enable parameters to be passed to this function
                 # YUBI: the message to call_model_on_image should differ based on processing mode
                 if processing_mode == "payment":
-                    page_array, objects_array = await asyncio.wait_for(call_model_on_image(img_base64, user_message, processing_mode), timeout=90)
+                    page_array, objects_array = await asyncio.wait_for(call_model_on_image(img_base64, user_message, processing_mode), timeout=150)
                     return page_array, objects_array
                 else:
-                    result = await asyncio.wait_for(call_model_on_image(img_base64, user_message, processing_mode), timeout=90)
+                    result = await asyncio.wait_for(call_model_on_image(img_base64, user_message, processing_mode), timeout=150)
                     return result
+            # continue processing more pages if one page fails or times out
+            except asyncio.TimeoutError:
+                # I won't be able to see these print statements
+                print(f"[TIMEOUT] Skipping pages {start_idx}-{start_idx + batch_size - 1}")
+                return None
+            except Exception as e:
+                print(f"[ERROR] Failed processing pages {start_idx}-{start_idx + batch_size - 1}: {e}")
+                return None
+            
+            '''
             except asyncio.TimeoutError:
                 # Raise an error if processing times out for this batch
                 raise RuntimeError(f"Timeout processing pages {start_idx}-{start_idx + batch_size - 1}")
+            '''
 
     # Create async tasks for each batch of pages
     tasks = [asyncio.create_task(process_page_batch(i)) for i in range(0, num_pages, batch_size)]
 
-    # YUBI: is this correct?
-
     partial_answers = []
+    # Run all batch tasks concurrently (limited by semaphore)
     try:
+        # leave out exceptions from batch processing
+        batch_results = await asyncio.gather(*tasks, return_exceptions=False)
+
         if processing_mode == "payment":
-            # Run all batch tasks concurrently (limited by semaphore)
-            batch_results = await asyncio.gather(*tasks)
             partial_pages = [r[0] for r in batch_results if r is not None]
             # partial_objects = [r[1] for r in batch_results if r is not None]
             # YUBI: recent debugging statement
@@ -686,8 +698,6 @@ async def process_pdf():
             # YUBI: DEBUGGING by returning the partial objects and partial pages
             # return jsonify({"payments": partial_objects, "pages": partial_pages}), 200
         else:
-            # Run all batch tasks concurrently (limited by semaphore)
-            batch_results = await asyncio.gather(*tasks)
             # Filter out any None results (empty batches)
             partial_answers = [r for r in batch_results if r is not None]
     except RuntimeError as e:
