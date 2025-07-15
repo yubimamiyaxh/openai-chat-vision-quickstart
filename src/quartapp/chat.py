@@ -178,13 +178,15 @@ async def call_model_on_image(image_base64, user_message, processing_mode):
         section_prompt += (
         "The file contains scanned documents of medical patients. Extract the following for each patient if present: full name, date of birth, sex, address, email, phone, primary and secondary insurance name, type, member ID, group ID, CPT code, and ICD code. "
         "Insurance type is either Medicare or Commercial (which includes all others). If both are present, Medicare is the primary. "
-        "Format each field as a separate key-value pair: the key is the patient’s full name, the value is 'Field Name: Field Value'. Repeat the patient name for each field. "
-        "Format dates as MM/DD/YYYY. Do not include commas within values. Return all pairs as a single comma-separated list with no extra explanation, text, or formatting like markdown backticks. Omit any fields not found."
+        "Format each field as a separate key-value pair: the key is the patient\'s full name, the value is 'Field Name: Field Value'. Repeat the patient name for each field. "
+        "Format dates as MM/DD/YYYY. Do not include commas within values. Return all pairs as a single comma-separated list. Omit any fields not found."
+        "Return only the JSON. Do not include any explanations and do not wrap the response in markdown formatting such as triple backticks or ```json. Omit any fields not found."
         )
 
 
+
     # This sends all messages, so API request may exceed token limits
-    all_messages = [{"role": "system", "content": "You are a helpful assistant."}]
+    all_messages = [{"role": "system", "content": "You are an information extraction system."}]
     if image_base64:
         user_content.append({"text": user_message, "type": "text"})
         user_content.append({"text": section_prompt, "type": "text"})
@@ -197,7 +199,7 @@ async def call_model_on_image(image_base64, user_message, processing_mode):
         model=bp.model_name,
         messages=all_messages,
         stream=True,
-        temperature=0.5,
+        temperature=0.2,
     )
 
     # save answers
@@ -237,7 +239,7 @@ async def call_model_followup(prompt):
         model=bp.model_name,
         messages=all_messages,
         stream=True,
-        temperature=0.5,
+        temperature=0.2,
     )
 
     # save answers
@@ -316,7 +318,7 @@ async def summarize_matches(partials, batch_token_limit=12000):
         # YUBI: debugging statement, read in partials as a valid JSON array
         partials_connected = json.dumps([json.loads(p) for p in batch])
         all_messages = [
-            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "system", "content": "You are an information extraction system."},
             {
                 "role": "user",
                 "content": [
@@ -331,7 +333,7 @@ async def summarize_matches(partials, batch_token_limit=12000):
             model=bp.model_name,
             messages=all_messages,
             stream=True,
-            temperature=0.5,
+            temperature=0.2,
         )
 
         response_text = ""
@@ -406,7 +408,7 @@ async def summarize_answers(partials, processing_mode, batch_token_limit=6000):
     for batch in batches:
         partials_connected = "\n".join(batch)
         all_messages = [
-            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "system", "content": "You are an information extraction system."},
             {
                 "role": "user",
                 "content": [
@@ -422,7 +424,7 @@ async def summarize_answers(partials, processing_mode, batch_token_limit=6000):
             model=bp.model_name,
             messages=all_messages,
             stream=True,
-            temperature=0.5,
+            temperature=0.2,
         )
 
         response_text = ""
@@ -451,7 +453,7 @@ async def connect_summaries(all_json_objects, processing_mode):
     json_input_str = json.dumps(all_json_objects)
     
     # call model with final message prompt
-    all_messages = [{"role": "system", "content": "You are a helpful assistant."}]
+    all_messages = [{"role": "system", "content": "You are an information extraction system."}]
 
     # YUBI EDIT: add schema file for the payment information
     if processing_mode == "payment":
@@ -488,7 +490,7 @@ async def connect_summaries(all_json_objects, processing_mode):
         model=bp.model_name,
         messages=all_messages,
         stream=True,
-        temperature=0.5,
+        temperature=0.2,
     )
 
     # save answers
