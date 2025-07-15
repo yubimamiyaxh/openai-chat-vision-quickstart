@@ -642,7 +642,8 @@ async def process_pdf():
                 try:
                     pil_image = await convert_pdf_page_to_image(page, dpi_threshold)
                 except Exception as e:
-                    return jsonify({"error": f"Failed to convert page {page_idx} to image: {e}"})
+                    return None  # Skip this page if conversion fails
+                    # return jsonify({"error": f"Failed to convert page {page_idx} to image: {e}"})
                 
                 images.append(pil_image)
 
@@ -686,20 +687,25 @@ async def process_pdf():
     partial_answers = []
     # Run all batch tasks concurrently (limited by semaphore)
     try:
-        # leave out exceptions from batch processing
-        batch_results = await asyncio.gather(*tasks, return_exceptions=False)
+        batch_results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Filter out any exceptions and collect valid results only
+        valid_results = []
+        for r in batch_results:
+            if isinstance(r, Exception):
+                print(f"[BATCH ERROR] Skipping batch due to error: {r}")
+                continue
+            valid_results.append(r)
+
 
         if processing_mode == "payment":
-            partial_pages = [r[0] for r in batch_results if r is not None]
-            # partial_objects = [r[1] for r in batch_results if r is not None]
-            # YUBI: recent debugging statement
-            partial_objects = [obj for r in batch_results if r is not None for obj in r[1]]
 
-            # YUBI: DEBUGGING by returning the partial objects and partial pages
-            # return jsonify({"payments": partial_objects, "pages": partial_pages}), 200
+            partial_pages = [r[0] for r in valid_results if r is not None]
+            partial_objects = [obj for r in valid_results if r is not None for obj in r[1]]
         else:
             # Filter out any None results (empty batches)
-            partial_answers = [r for r in batch_results if r is not None]
+            partial_answers = [r for r in valid_results if r is not None]
+
     except RuntimeError as e:
         # Return 504 Gateway Timeout if any batch timed out
         return jsonify({"error": str(e)}), 504
