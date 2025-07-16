@@ -560,18 +560,58 @@ def validate_patient_fields(patients):
 
 # helper function to validate payment fields returned from summarize_answers
 # for payment processing mode
-# YUBI: write this function to validate payment fields later
-# TODO
 def validate_payment_fields(payments):
     # set everything to valid by default
     annotated = []
     for payment in payments:
         entry = {}
         for key, value in payment.items():
-            valid = True
+            if isinstance(value, str) and value in ["null", "None", "", "N/A", "not provided", " "]:
+                # do not highlight empty cells because they are already empty
+                valid = True
+            elif key == "Amount Paid":
+                # Amount Paid should be a valid monetary value (e.g., 123.45)
+                valid = bool(re.match(r"^\d+(\.\d{1,2})?$", str(value)))
+                reason = None if valid else "Must be a valid monetary value"
+            elif key in {"Payer Name", "Payee Name", "Patient Name"}:
+                # Payer name should be a string with only alphabetic characters and spaces
+                valid = bool(re.match(r"^[A-Za-z\s]+$", str(value)))
+                reason = None if valid else "Must contain only alphabetic characters and spaces"
+            elif key == "Payment Type":
+                # Payment Type should be either "Check" or "Virtual Card"
+                valid = value in {"Check", "Virtual Card"}
+                reason = None if valid else "Must be 'Check' or 'Virtual Card'"
+            elif key == "Payment Page Number":
+                # Page number should be an integer
+                valid = isinstance(value, int) and value > 0
+                reason = None if valid else "Must be a positive integer"
+            elif key == "Card Number":
+                # Card Number should be a 16-digit number
+                valid = bool(re.match(r"^\d{16}$", str(value)))
+                reason = None if valid else "Must be a 16-digit number"
+            elif key == "CVV":
+                # CVV should be a 3 to 4 digit number
+                valid = bool(re.match(r"^\d{3,4}$", str(value)))
+                reason = None if valid else "Must be a 3 or 4 digit number"
+            elif key == "Expiration Date":
+                # Expiration Date should be in MM/YY format
+                valid = bool(re.match(r"^(0[1-9]|1[0-2])/\d{2}$", str(value)))
+                reason = None if valid else "Must be in MM/YY format"
+            elif key == "Check Number":
+                # Check Number should be a number
+                valid = bool(re.match(r"^\d+$", str(value)))
+                reason = None if valid else "Must be a number"
+            else:
+                valid = True  # Other fields are considered valid by default
+                reason = None
             entry[key] = {"value": value, "valid": valid}
+
+            if not valid:
+                entry[key]["reason"] = reason
+
         annotated.append(entry)
     return annotated
+
 
 # Updated code to handle PDF processing in parallel
 # YUBI: double check this
@@ -597,12 +637,22 @@ async def process_pdf():
     # Define the batch size (number of PDF pages processed together in one batch)
     # YUBI: debugging, I decrease the batch size to 1 from 2
     # COME BACK TO THIS AND CHANGE IT LATER
-    batch_size = 1
+    if processing_mode == "payment":
+        batch_size = 1
+    else:
+        # default processing mode is billing
+        batch_size = 2
+
     num_pages = len(doc)  
 
     # Set maximum number of concurrent batches allowed to avoid overloading downstream resources
-    # YUBI: debugging, reduce batches to 2 from 4
-    MAX_CONCURRENT_BATCHES = 2
+    if processing_mode == "payment":
+        MAX_CONCURRENT_BATCHES = 2
+        # payment requires fewer concurrent batches to avoid overloading the model
+    else:
+        # default processing mode is billing
+        MAX_CONCURRENT_BATCHES = 4
+
     semaphore = asyncio.Semaphore(MAX_CONCURRENT_BATCHES)  # Controls concurrency limit
 
     # Helper function to stack multiple images vertically into one tall image
