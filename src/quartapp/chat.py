@@ -168,7 +168,7 @@ async def image_to_base64(img: Image.Image):
     return base64.b64encode(buffered.getvalue()).decode("utf-8")
 
 # YUBI: debugging with high max images and ocr threshold (number of characters detected on page)
-def filter_pdf_dual_path(doc, inclusion_keywords=None, exclusion_keywords=None, max_images=8, ocr_threshold=100, case_sensitive=False):
+def filter_pdf_dual_path(doc, inclusion_keywords=None, exclusion_keywords=None, max_images=8, ocr_threshold=100, case_sensitive=False, dpi_threshold=200):
     """
     Filters a PyMuPDF PDF document to determine which pages to include for processing.
 
@@ -197,7 +197,7 @@ def filter_pdf_dual_path(doc, inclusion_keywords=None, exclusion_keywords=None, 
         if len(extracted_text.strip()) < ocr_threshold:
             # Render page in grayscale to reduce load
             # dpi_threshold should be applied here as well, pass that in as a parameter
-            pix = page.get_pixmap(dpi=200, colorspace=fitz.csGRAY)
+            pix = page.get_pixmap(dpi=dpi_threshold, colorspace=fitz.csGRAY)
             img = Image.open(BytesIO(pix.tobytes("png"))).convert("L")
 
             # Enhance contrast and binarize
@@ -707,22 +707,21 @@ async def process_pdf():
         return jsonify({"error": f"Failed to open PDF: {str(e)}"}), 500
 
     # Define the batch size (number of PDF pages processed together in one batch)
-    # YUBI: debugging, I decrease the batch size to 1 from 2
-    # COME BACK TO THIS AND CHANGE IT LATER
+    exclusion_keywords = []
     if processing_mode == "payment":
         batch_size = 1
         dpi_threshold = 200
+        exclusion_keywords = ["U.S. Postage Paid"]
     else:
         # default processing mode is billing
         batch_size = 2
         dpi_threshold = 100
+        exclusion_keywords = ["Consent Form", "Schedule Report", "Anesthesia Record", "Consent for Anesthesia Services", "Referral Details", "Discharge Instructions", "Medication Reconciliation Form", "EGD Report"]
 
-    # YUBI: add function calls here
-    # pass in dpi_threshold as a parameter as well
-    # filter_pdf_dual_path(doc, inclusion_keywords=None, exclusion_keywords=None, max_images=8, ocr_threshold=100, case_sensitive=False):
+    # filter for meaningful pages
+    pages_include = filter_pdf_dual_path(doc, inclusion_keywords=None, exclusion_keywords=exclusion_keywords, max_images=8, ocr_threshold=100, case_sensitive=False, dpi_threshold=dpi_threshold)
     
-
-    num_pages = len(doc)  
+    num_pages = len(pages_include)  
 
     # Set maximum number of concurrent batches allowed to avoid overloading downstream resources
     if processing_mode == "payment":
@@ -754,8 +753,10 @@ async def process_pdf():
     async def process_page_batch(start_idx: int):
         async with semaphore:  # Acquire semaphore before starting to limit concurrency
             images = []
-            # Loop through pages in the batch
-            for page_idx in range(start_idx, min(start_idx + batch_size, num_pages)):
+            # Loop through included pages in the batch
+            # for page_idx in range(start_idx, min(start_idx + batch_size, num_pages)):
+            for idx in range(start_idx, min(start_idx + batch_size, num_pages)):
+                page_idx = pages_include[idx]
                 # Extract one page as a separate PDF document
                 subdoc = fitz.open()
                 subdoc.insert_pdf(doc, from_page=page_idx, to_page=page_idx)
