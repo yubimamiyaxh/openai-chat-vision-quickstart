@@ -720,7 +720,9 @@ async def process_pdf():
 
     # filter for meaningful pages
     pages_include = filter_pdf_dual_path(doc, inclusion_keywords=None, exclusion_keywords=exclusion_keywords, max_images=8, ocr_threshold=100, case_sensitive=False, dpi_threshold=dpi_threshold)
-    
+    if not pages_include:
+        return jsonify({"error": "No valid pages found for processing."}), 400
+
     num_pages = len(pages_include)  
 
     # Set maximum number of concurrent batches allowed to avoid overloading downstream resources
