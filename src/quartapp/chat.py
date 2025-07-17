@@ -17,6 +17,7 @@ import re
 import asyncio
 import json
 import tiktoken  # For counting tokens (if available; otherwise approximate)
+import pytesseract
 
 
 import azure.identity.aio
@@ -138,25 +139,96 @@ async def shutdown_openai():
 async def index():
     return await render_template("index.html")
 
+from PIL import Image, ImageEnhance
+from io import BytesIO
+
 # Convert a PyMuPDF page to a PIL image.
 async def convert_pdf_page_to_image(page, dpi_threshold):
-    # YUBI: debugging statement, want to change back alter
     pix = page.get_pixmap(dpi=dpi_threshold)
     img_bytes = pix.tobytes("png")
 
-    pil_image = Image.open(BytesIO(img_bytes))
+    # still need to pre-process the image
+    # Convert to grayscale
+    pil_image = Image.open(BytesIO(img_bytes)).convert("L")
 
-    # Enhance contrast (factor >1.0 increases contrast, <1.0 decreases it)
+    # Enhance contrast while still grayscale
     enhancer = ImageEnhance.Contrast(pil_image)
-    enhanced_image = enhancer.enhance(2.0)  # 2.0 is a strong but common enhancement level
+    enhanced_image = enhancer.enhance(2.0)  # You can tweak this value if needed
 
-    return enhanced_image
+    # Binarize to black and white
+    binarized_image = enhanced_image.point(lambda x: 0 if x < 128 else 255, mode="1")
+
+    return binarized_image
+
 
 # Convert a PIL image to a base64 string.
 async def image_to_base64(img: Image.Image):
     buffered = BytesIO()
     img.save(buffered, format="PNG")
     return base64.b64encode(buffered.getvalue()).decode("utf-8")
+
+# YUBI: debugging with high max images and ocr threshold (number of characters detected on page)
+def filter_pdf_dual_path(doc, inclusion_keywords=None, exclusion_keywords=None, max_images=8, ocr_threshold=100, case_sensitive=False):
+    """
+    Filters a PyMuPDF PDF document to determine which pages to include for processing.
+
+    Parameters:
+    - doc: fitz.Document object.
+    - inclusion_keywords: List of keywords to include pages (optional).
+    - exclusion_keywords: List of keywords to exclude pages (optional).
+    - max_images: Maximum allowed images per page before excluding.
+    - ocr_threshold: Minimum characters needed to consider text extraction successful.
+    - case_sensitive: Whether keyword matching is case-sensitive.
+
+    Returns:
+    - List of page numbers (0-indexed) to include.
+    """
+
+    inclusion_keywords = inclusion_keywords or []
+    exclusion_keywords = exclusion_keywords or []
+    pages_to_include = []
+
+    for i, page in enumerate(doc):
+        # Step 1: Try direct text extraction
+        text = page.get_text()
+        extracted_text = text if case_sensitive else text.lower()
+
+        # Step 2: OCR if little text was extracted
+        if len(extracted_text.strip()) < ocr_threshold:
+            # Render page in grayscale to reduce load
+            # dpi_threshold should be applied here as well, pass that in as a parameter
+            pix = page.get_pixmap(dpi=200, colorspace=fitz.csGRAY)
+            img = Image.open(BytesIO(pix.tobytes("png"))).convert("L")
+
+            # Enhance contrast and binarize
+            img = ImageEnhance.Contrast(img).enhance(2.0)
+            img = img.point(lambda x: 0 if x < 128 else 255, mode="1")
+
+            # OCR with pytesseract on optimized image
+            extracted_text = pytesseract.image_to_string(img)
+            if not case_sensitive:
+                extracted_text = extracted_text.lower()
+
+        # Step 3: Exclude if matches any exclusion keywords
+        if exclusion_keywords:
+            if any((kw if case_sensitive else kw.lower()) in extracted_text for kw in exclusion_keywords):
+                continue  # if match, skip this page
+
+        # Step 4: Check inclusion criteria
+        if inclusion_keywords:
+            if not any((kw if case_sensitive else kw.lower()) in extracted_text for kw in inclusion_keywords):
+                continue  # if no matches, skip this page
+
+        # Step 5: Count images on page
+        if len(page.get_images(full=True)) > max_images:
+            continue  # too many images, skip this page
+
+        # If it passed all filters, include the page
+        pages_to_include.append(i)
+
+    # page numbers are 0-indexed, so i=0 represents first page
+    return pages_to_include
+
 
 # Call the AI model with the image and user message
 async def call_model_on_image(image_base64, user_message, processing_mode):
@@ -639,9 +711,16 @@ async def process_pdf():
     # COME BACK TO THIS AND CHANGE IT LATER
     if processing_mode == "payment":
         batch_size = 1
+        dpi_threshold = 200
     else:
         # default processing mode is billing
         batch_size = 2
+        dpi_threshold = 100
+
+    # YUBI: add function calls here
+    # pass in dpi_threshold as a parameter as well
+    # filter_pdf_dual_path(doc, inclusion_keywords=None, exclusion_keywords=None, max_images=8, ocr_threshold=100, case_sensitive=False):
+    
 
     num_pages = len(doc)  
 

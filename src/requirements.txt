@@ -133,6 +133,11 @@ pyjwt[crypto]==2.10.1
     #   msal
     #   pyjwt
 PyMuPDF==1.26.1
+pytesseract==0.3.13
+    # ASK: is the version too recent?
+    # via quartapp (pyproject.toml)
+    # Ensure that Tesseract OCR is installed on the system.
+    # manually install in terminal before app deployment if it isn't being automatically installed in the environment setup
 python-dotenv==1.0.1
     # via
     #   quartapp (pyproject.toml)
@@ -154,6 +159,8 @@ sniffio==1.3.1
     #   anyio
     #   openai
 tiktoken==0.9.0
+    # manually install in terminal before app deployment if it isn't being automatically installed in the environment setup
+    # ASK: is the version too recent?
 tqdm==4.67.1
     # via openai
 typing-extensions==4.12.2
