@@ -15,6 +15,7 @@ FROM base AS build
 
 COPY requirements.txt .
 
+# cache-bust: 2025-07-17 force reinstall dependencies
 RUN pip3 install -r requirements.txt
 
 COPY . .
