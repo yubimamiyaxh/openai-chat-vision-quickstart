@@ -152,7 +152,8 @@ async def convert_pdf_page_to_image(page, dpi_threshold):
     enhanced_image = enhancer.enhance(2.0)  # You can tweak this value if needed
 
     # Binarize
-    binarized_image = enhanced_image.point(lambda x: 0 if x < 128 else 255, mode="1")
+    # binarized_image = enhanced_image.point(lambda x: 0 if x < 128 else 255, mode="1")
+    binarized_image = enhanced_image.convert("1")
 
     return binarized_image
 
@@ -184,33 +185,34 @@ async def filter_pdf_dual_path(doc, inclusion_keywords=None, exclusion_keywords=
     pages_to_include = []
 
     for i, page in enumerate(doc):
+
+        # Count images on page
+        if len(page.get_images(full=True)) > max_images:
+            continue  # too many images, skip
+
         # Step 1: Try direct text extraction
         text = page.get_text()
-        extracted_text = text if case_sensitive else text.lower()
 
-        # Step 2: OCR if little text was extracted
-        if len(extracted_text.strip()) < ocr_threshold:
-            pix = page.get_pixmap(dpi=dpi_threshold)
-            img = Image.open(BytesIO(pix.tobytes("png")))
-            extracted_text = pytesseract.image_to_string(img)
-            if not case_sensitive:
-                extracted_text = extracted_text.lower()
+        # If it can't extract any text, there is no need to check anything
+        if text == "":
+            # add page
+            pages_to_include.append(i)
+
+        extracted_text = text if case_sensitive else text.lower()
 
         # Step 3: Exclude if matches any exclusion keywords
         if exclusion_keywords:
             for kw in exclusion_keywords:
                 kw_check = kw if case_sensitive else kw.lower()
                 if kw_check in extracted_text:
-                    continue  # skip this page
+                    continue  # if it has the keyword, skip this page
 
         # Step 4: Check inclusion criteria
+        # this shouldn't be used
         if inclusion_keywords:
             if not any((kw if case_sensitive else kw.lower()) in extracted_text for kw in inclusion_keywords):
                 continue  # no match, skip this page
 
-        # Step 5: Count images on page
-        if len(page.get_images(full=True)) > max_images:
-            continue  # too many images, skip
 
         # If it passed all filters, include the page
         pages_to_include.append(i)
