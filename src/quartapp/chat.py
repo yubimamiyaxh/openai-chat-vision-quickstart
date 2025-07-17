@@ -163,7 +163,7 @@ async def image_to_base64(img: Image.Image):
     return base64.b64encode(buffered.getvalue()).decode("utf-8")
 
 
-def filter_pdf_dual_path(doc, inclusion_keywords=None, exclusion_keywords=None, max_images=8, ocr_threshold=100, case_sensitive=False, dpi_threshold=200):
+async def filter_pdf_dual_path(doc, inclusion_keywords=None, exclusion_keywords=None, max_images=8, ocr_threshold=100, case_sensitive=False, dpi_threshold=200):
     """
     Filters a PyMuPDF PDF document to determine which pages to include for processing.
 
@@ -709,7 +709,14 @@ async def process_pdf():
         exclusion_keywords = ["Consent Form", "Schedule Report", "Anesthesia Record", "Consent for Anesthesia Services", "Referral Details", "Discharge Instructions", "Medication Reconciliation Form", "EGD Report"]
 
     # filter for meaningful pages
-    pages_include = filter_pdf_dual_path(doc, inclusion_keywords=None, exclusion_keywords=exclusion_keywords, max_images=8, ocr_threshold=100, case_sensitive=False, dpi_threshold=dpi_threshold)
+    try:
+        pages_include = await filter_pdf_dual_path(doc, inclusion_keywords=None, exclusion_keywords=exclusion_keywords, max_images=8, ocr_threshold=100, case_sensitive=False, dpi_threshold=dpi_threshold)
+    except RuntimeError as e:
+        return jsonify({"error with filtering pdf": str(e)}), 504
+    except Exception as e:
+        # Return 500 for any other errors during batch processing
+        return jsonify({"error": f"filtering pdf failed: {str(e)}"}), 500
+    
     if not pages_include:
         return jsonify({"error": "No valid pages found for processing."}), 400
 
@@ -765,7 +772,13 @@ async def process_pdf():
             # Stack images vertically if multiple pages, else use single image
             merged_image = images[0] if len(images) == 1 else stack_images_vertically(images)
             # Convert merged image to base64 string for model input
-            img_base64 = await image_to_base64(merged_image)
+            try:
+                img_base64 = await image_to_base64(merged_image)
+            except RuntimeError as e:
+                return jsonify({"error with image to base64 conversion": str(e)}), 504
+            except Exception as e:
+                # Return 500 for any other errors during batch processing
+                return jsonify({"error": f"image to base64 conversion failed: {str(e)}"}), 500
 
             try:
                 # Call the AI model with a timeout to avoid hanging
