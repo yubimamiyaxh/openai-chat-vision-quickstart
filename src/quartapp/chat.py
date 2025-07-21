@@ -17,8 +17,6 @@ import re
 import asyncio
 import json
 import tiktoken  # For counting tokens (if available; otherwise approximate)
-import pytesseract
-
 
 import azure.identity.aio
 import openai
